@@ -83,17 +83,7 @@ The checked-in harness has 20 synthetic multilingual scenarios replayed under cl
 | te-IN | 5dB | 27 of 27 | 100.0% | 100.0% | 0.0% | 0.0% | 1 of 1 | 1 of 1 | 0 of 0 | 1.465 |
 | te-IN | clean | 27 of 27 | 100.0% | 100.0% | 0.0% | 0.0% | 1 of 1 | 1 of 1 | 0 of 0 | 1.298 |
 
-### Evaluation limitations
 
-- This is a small synthetic fixture set, not a representative clinical or multilingual speech corpus. The PRD's planned consenting-speaker acoustic evaluation has not been demonstrated by this dry run.
-- Noise variants are reproducible pink-noise mixes. Offline mode does not run Prisma or Evon against noisy audio.
-- WER/CER use fixture transcripts. In dry-run mode the transcript is replayed, so these metrics do not measure speech recognition quality.
-- Dry-run timing values are simulated, not observed network or service latency.
-- Live mode requires matching recordings and makes billable Prisma/Evon requests. Results should be reported separately and only after actual recordings are evaluated.
-
-The full report is [`eval/results/evaluation_report.md`](eval/results/evaluation_report.md); the CSVs are [`metrics_summary.csv`](eval/results/metrics_summary.csv) and [`language_noise_breakdown.csv`](eval/results/language_noise_breakdown.csv).
-
-![Offline fixture evaluation chart: multilingual extraction and rule performance](eval/results/demo_slide_chart.png)
 
 ## Quickstart
 
