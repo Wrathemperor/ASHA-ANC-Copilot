@@ -1,0 +1,9 @@
+metric,numerator,denominator,count,rate,details
+1. Critical Extraction Errors — False Reassurance,0,21,0 of 21,0.0,
+1. Critical Extraction Errors — False Alarm,0,357,0 of 357,0.0,
+2. Danger-Sign Flag Recall,24,24,24 of 24,1.0,
+3. Gap-Check Correctness / Priority Order,12,12,12 of 12,1.0,
+4. Read-Back Catch Rate — Injected Errors,6,6,6 of 6,1.0,
+5. Transcription Quality — WER,0,1326,0 of 1326,0.0,0 word edit(s)
+5. Transcription Quality — CER,0,8157,0 of 8157,0.0,0 character edit(s)
+6. Per-Turn Latency Breakdown,60,60,60 turns,,mean prisma_ms=451.83; mean evon_ms=601.60; mean rules_ms=1.97; mean timbre_ms=335.72; mean total_turn_seconds=1.39

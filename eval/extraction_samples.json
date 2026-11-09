@@ -1,0 +1,34 @@
+[
+  {
+    "id": "synthetic-explicit-denials",
+    "language": "en-IN",
+    "transcript": "28 weeks pregnant. BP 120 by 80. No swelling, no headache, no blurred vision, normal baby movement, no bleeding, no fits, no severe abdominal pain, no fever, no leaking fluid.",
+    "expected": {
+      "gestational_weeks": 28,
+      "bp_systolic": 120,
+      "bp_diastolic": 80,
+      "swelling": "denied",
+      "severe_headache": "denied",
+      "blurred_vision": "denied",
+      "reduced_fetal_movement": "denied",
+      "vaginal_bleeding": "denied",
+      "convulsions": "denied",
+      "severe_abdominal_pain": "denied",
+      "fever": "denied",
+      "leaking_fluid": "denied"
+    }
+  },
+  {
+    "id": "synthetic-elevated-bp-with-unspecified-symptoms",
+    "language": "hi-IN",
+    "transcript": "24 weeks. BP ek sau paintalis over pachanve. Sujan hai.",
+    "expected": {
+      "gestational_weeks": 24,
+      "bp_systolic": 145,
+      "bp_diastolic": 95,
+      "swelling": "present",
+      "severe_headache": "not_mentioned",
+      "blurred_vision": "not_mentioned"
+    }
+  }
+]

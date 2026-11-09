@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-multipart
+httpx
+pydantic
+python-dotenv
+numpy
+matplotlib
+jiwer
+pytest

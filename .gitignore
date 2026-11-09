@@ -1,0 +1,8 @@
+.env
+.cache/
+eval/audio/*
+!eval/audio/.gitkeep
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.venv/
