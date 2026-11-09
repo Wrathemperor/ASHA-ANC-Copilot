@@ -14,8 +14,8 @@ from app.gnani.timbre import TimbreClient
 
 
 @pytest.fixture
-def usage() -> UsageCounter:
-    return UsageCounter(Path(".cache/test_api_usage.json"))
+def usage(tmp_path: Path) -> UsageCounter:
+    return UsageCounter(tmp_path / "test_api_usage.json")
 
 
 def test_prisma_passes_fixed_options(usage: UsageCounter) -> None:
@@ -61,14 +61,14 @@ def test_prisma_direct_rest_uses_keyterms_and_previous_text(
     assert usage.calls == {"prisma": 1}
 
 
-def test_timbre_cache_calls_sdk_once(usage: UsageCounter) -> None:
+def test_timbre_cache_calls_sdk_once(usage: UsageCounter, tmp_path: Path) -> None:
     class SDK:
         calls = 0
         def synthesize(self, **kwargs):
             self.calls += 1
             return b"RIFF-audio"
     sdk = SDK()
-    cache_dir = Path(".cache/test_tts")
+    cache_dir = tmp_path / "test_tts"
     cache_dir.mkdir(parents=True, exist_ok=True)
     for cached in cache_dir.glob("*.wav"):
         cached.unlink()

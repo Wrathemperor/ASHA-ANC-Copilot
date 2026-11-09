@@ -74,7 +74,8 @@ async function apiRequest(url, options = {}, countRequest = true) {
   return payload;
 }
 
-async function createSession() {
+async function createSession(retryCount = 0) {
+  elements["microphone-error"].textContent = "";
   setMicState("PROCESSING", "Starting an in-memory visit session...");
   elements["mic-button"].disabled = true;
   requestCount = 0;
@@ -99,6 +100,10 @@ async function createSession() {
     setMicState("IDLE", "Tap and hold to speak your visit note.");
     await refreshSession();
   } catch (error) {
+    if (retryCount < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return createSession(retryCount + 1);
+    }
     elements["session-badge"].textContent = "Session unavailable";
     elements["microphone-error"].textContent = error.message;
     setMicState("IDLE", "Could not start a visit session.");
