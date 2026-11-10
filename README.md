@@ -13,6 +13,11 @@ A voice-first, browser-based clinical record-keeping copilot that helps Accredit
 
 ## Project Demonstration Video
 
+
+https://github.com/user-attachments/assets/698eedc9-2e99-4853-b094-870ae3f15ca3
+
+
+
 <p align="center">
   <a href="https://github.com/Wrathemperor/ASHA-ANC-Copilot/raw/main/assets/demo.mp4">
     <img src="https://img.shields.io/badge/▶%20CLICK%20TO%20PLAY-DEMO%20WALKTHROUGH%20VIDEO-0ea968?style=for-the-badge&logoColor=white" alt="Play Demo Video" height="42">
