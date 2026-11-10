@@ -11,31 +11,9 @@ A voice-first, browser-based clinical record-keeping copilot that helps Accredit
 
 ---
 
-## Project Demonstration Video
-
 
 https://github.com/user-attachments/assets/698eedc9-2e99-4853-b094-870ae3f15ca3
 
-
-
-<p align="center">
-  <a href="https://github.com/Wrathemperor/ASHA-ANC-Copilot/raw/main/assets/demo.mp4">
-    <img src="https://img.shields.io/badge/▶%20CLICK%20TO%20PLAY-DEMO%20WALKTHROUGH%20VIDEO-0ea968?style=for-the-badge&logoColor=white" alt="Play Demo Video" height="42">
-  </a>
-</p>
-
-<p align="center">
-  <video src="https://github.com/Wrathemperor/ASHA-ANC-Copilot/raw/main/assets/demo.mp4" controls width="100%" style="max-width: 820px;">
-    <a href="https://github.com/Wrathemperor/ASHA-ANC-Copilot/raw/main/assets/demo.mp4">Click here to play or download the demo video directly (assets/demo.mp4)</a>
-  </video>
-</p>
-
-https://github.com/Wrathemperor/ASHA-ANC-Copilot/raw/main/assets/demo.mp4
-
-> [!TIP]
-> - **Direct Stream / Download:** [`assets/demo.mp4`](assets/demo.mp4)
-> - **Live Web Application:** [https://asha-anc-copilot.onrender.com](https://asha-anc-copilot.onrender.com)
-> - *Note on GitHub Inline Video:* GitHub's markdown parser converts video links into its native in-page player when the video is uploaded through GitHub's web interface (drag and drop `demo.mp4` into the README editor or an Issue comment on `github.com`).
 
 ---
 
