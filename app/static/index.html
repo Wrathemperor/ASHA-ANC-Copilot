@@ -144,6 +144,15 @@
 
           <p id="audio-status" class="audio-status" aria-live="polite">Tap and hold to speak your visit note.</p>
 
+          <!-- TextShimmerWave Loading Animation (Active during audio processing) -->
+          <div id="processing-shimmer-container" class="processing-shimmer-container" hidden aria-live="polite">
+            <div class="shimmer-wave-card">
+              <div class="shimmer-wave-row" id="shimmer-row-1"></div>
+              <div class="shimmer-wave-row" id="shimmer-row-2"></div>
+              <div class="shimmer-wave-row" id="shimmer-row-3"></div>
+            </div>
+          </div>
+
           <div class="mic-stage">
             <div class="mic-wrap">
               <span id="recording-wave" class="recording-wave" aria-hidden="true"></span>

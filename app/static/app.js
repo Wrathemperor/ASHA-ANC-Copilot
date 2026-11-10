@@ -63,7 +63,71 @@ function cacheElements() {
     "slip-patient-edd", "slip-badge", "slip-flag-text", "slip-weeks",
     "slip-bp", "slip-weight", "slip-hb", "slip-danger-list", "slip-rule-list",
     "slip-qr-box", "slip-qr-payload", "slip-date",
+    "processing-shimmer-container", "shimmer-row-1", "shimmer-row-2", "shimmer-row-3",
   ].forEach((id) => { elements[id] = document.getElementById(id); });
+}
+
+function renderTextShimmerWave(targetElement, text, baseColor = "#64748b", shimmerColor = "#2563eb", duration = 1.4, spread = 1.0) {
+  if (!targetElement) return;
+  targetElement.replaceChildren();
+  const wrapper = document.createElement("span");
+  wrapper.className = "text-shimmer-wave";
+
+  const chars = text.split("");
+  chars.forEach((char, index) => {
+    const span = document.createElement("span");
+    span.className = "text-shimmer-wave-char";
+    span.style.setProperty("--char-base-color", baseColor);
+    span.style.setProperty("--char-shimmer-color", shimmerColor);
+    const delay = (index * duration) / (chars.length * spread);
+    span.style.setProperty("--char-delay", `${delay.toFixed(3)}s`);
+    span.textContent = char === " " ? "\u00A0" : char;
+    wrapper.appendChild(span);
+  });
+  targetElement.appendChild(wrapper);
+}
+
+function showProcessingShimmer(active) {
+  const container = elements["processing-shimmer-container"];
+  if (!container) return;
+  if (!active) {
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+
+  // Row 1: Reading audio (#64748b base, #2563eb blue shimmer)
+  const r1 = elements["shimmer-row-1"];
+  if (r1 && !r1.hasChildNodes()) {
+    const dot1 = document.createElement("span");
+    dot1.className = "shimmer-dot pulse-blue";
+    r1.appendChild(dot1);
+    const textNode1 = document.createElement("span");
+    renderTextShimmerWave(textNode1, "Reading visit audio...", "#64748b", "#2563eb");
+    r1.appendChild(textNode1);
+  }
+
+  // Row 2: Transcribing speech (#64748b base, #16a34a green shimmer)
+  const r2 = elements["shimmer-row-2"];
+  if (r2 && !r2.hasChildNodes()) {
+    const dot2 = document.createElement("span");
+    dot2.className = "shimmer-dot pulse-green";
+    r2.appendChild(dot2);
+    const textNode2 = document.createElement("span");
+    renderTextShimmerWave(textNode2, "Transcribing via Gnani Prisma v3.0...", "#64748b", "#16a34a");
+    r2.appendChild(textNode2);
+  }
+
+  // Row 3: Extracting facts & rules (#64748b base, #e11d48 rose shimmer)
+  const r3 = elements["shimmer-row-3"];
+  if (r3 && !r3.hasChildNodes()) {
+    const dot3 = document.createElement("span");
+    dot3.className = "shimmer-dot pulse-rose";
+    r3.appendChild(dot3);
+    const textNode3 = document.createElement("span");
+    renderTextShimmerWave(textNode3, "Extracting clinical facts & evaluating rules...", "#64748b", "#e11d48");
+    r3.appendChild(textNode3);
+  }
 }
 
 function setMicState(state, statusText) {
@@ -71,6 +135,7 @@ function setMicState(state, statusText) {
   elements["audio-status"].textContent = statusText;
   elements["mic-button"].classList.toggle("listening", state === "LISTENING");
   elements["recording-wave"].classList.toggle("active", state === "LISTENING");
+  showProcessingShimmer(state === "PROCESSING");
 }
 
 async function apiRequest(url, options = {}, countRequest = true) {
