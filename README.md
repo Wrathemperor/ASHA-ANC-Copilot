@@ -13,15 +13,24 @@ A voice-first, browser-based clinical record-keeping copilot that helps Accredit
 
 ## Project Demonstration Video
 
-<div align="center">
-  <video src="assets/demo.mp4" controls width="100%" style="max-width: 820px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
-    Your browser does not support the video tag. Watch or download the demo video directly from <a href="assets/demo.mp4">assets/demo.mp4</a>.
+<p align="center">
+  <a href="https://github.com/Wrathemperor/ASHA-ANC-Copilot/raw/main/assets/demo.mp4">
+    <img src="https://img.shields.io/badge/▶%20CLICK%20TO%20PLAY-DEMO%20WALKTHROUGH%20VIDEO-0ea968?style=for-the-badge&logoColor=white" alt="Play Demo Video" height="42">
+  </a>
+</p>
+
+<p align="center">
+  <video src="https://github.com/Wrathemperor/ASHA-ANC-Copilot/raw/main/assets/demo.mp4" controls width="100%" style="max-width: 820px;">
+    <a href="https://github.com/Wrathemperor/ASHA-ANC-Copilot/raw/main/assets/demo.mp4">Click here to play or download the demo video directly (assets/demo.mp4)</a>
   </video>
-</div>
+</p>
+
+https://github.com/Wrathemperor/ASHA-ANC-Copilot/raw/main/assets/demo.mp4
 
 > [!TIP]
-> **Video File:** The walkthrough video is stored in [`assets/demo.mp4`](assets/demo.mp4). You can download or play it directly in any media player.  
-> **Live Demo:** Try the deployed web application at [https://asha-anc-copilot.onrender.com](https://asha-anc-copilot.onrender.com).
+> - **Direct Stream / Download:** [`assets/demo.mp4`](assets/demo.mp4)
+> - **Live Web Application:** [https://asha-anc-copilot.onrender.com](https://asha-anc-copilot.onrender.com)
+> - *Note on GitHub Inline Video:* GitHub's markdown parser converts video links into its native in-page player when the video is uploaded through GitHub's web interface (drag and drop `demo.mp4` into the README editor or an Issue comment on `github.com`).
 
 ---
 
