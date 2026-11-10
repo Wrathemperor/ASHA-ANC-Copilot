@@ -1,8 +1,94 @@
 # ASHA ANC Home-Visit Copilot
 
-> **Clinical safety disclaimer:** **Record-Keeping & Deterministic MoHFW/PMSMA Guideline Flagging Only — Never Diagnoses, Recommends Treatment, or Assigns PMSMA Stickers.**
+> **Clinical safety disclaimer:** **Record-Keeping and Deterministic MoHFW/PMSMA Guideline Flagging Only. Never Diagnoses, Recommends Treatment, or Assigns PMSMA Stickers.**
 
-This browser-based prototype helps ASHA workers capture antenatal-care home-visit notes by voice, identify missing safety information, and display deterministic clinician-referral flags. It is not a clinical decision-maker or a replacement for a clinician.
+[![Live Web Application](https://img.shields.io/badge/Live_Demo-asha--anc--copilot.onrender.com-0ea968?style=for-the-badge&logo=render&logoColor=white)](https://asha-anc-copilot.onrender.com)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-ASHA--ANC--Copilot-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Wrathemperor/ASHA-ANC-Copilot)
+[![Demo Video](https://img.shields.io/badge/Demo_Video-Watch_Walkthrough-0b8a54?style=for-the-badge&logo=video&logoColor=white)](assets/demo.mp4)
+[![Tests Passing](https://img.shields.io/badge/Tests-70_Passed-blue?style=for-the-badge&logo=pytest&logoColor=white)](#run-the-tests)
+
+A voice-first, browser-based clinical record-keeping copilot that helps Accredited Social Health Activists (ASHA workers) document antenatal care (ANC) home visits, catch missing danger signs, and surface deterministic clinician-referral flags in Indic languages.
+
+---
+
+## Project Demonstration Video
+
+<div align="center">
+  <video src="assets/demo.mp4" controls width="100%" style="max-width: 820px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+    Your browser does not support the video tag. Watch or download the demo video directly from <a href="assets/demo.mp4">assets/demo.mp4</a>.
+  </video>
+</div>
+
+> [!TIP]
+> **Video File:** The walkthrough video is stored in [`assets/demo.mp4`](assets/demo.mp4). You can download or play it directly in any media player.  
+> **Live Demo:** Try the deployed web application at [https://asha-anc-copilot.onrender.com](https://asha-anc-copilot.onrender.com).
+
+---
+
+## Solution Pitch and Summary (1-Page Brief)
+
+### 1. Operational Context
+India has over 900,000 Accredited Social Health Activists (ASHAs) serving as the frontline link between expectant mothers and primary health centers. During antenatal care (ANC) home visits, an ASHA worker must record maternal vitals, screen for obstetric danger signs, and ensure timely hospital referrals.
+
+Today, this data is hand-written across paper registers while moving door-to-door in noisy rural environments. Crucial complications such as pre-eclampsia, gestational hypertension, severe anemia, and reduced fetal movement are often documented inconsistently or recognized too late for preventive clinical intervention.
+
+### 2. The Danger of Generic Conversational AI in Clinical Care
+Deploying standard generative chatbots directly to frontline community health workers introduces severe safety failure modes:
+- **Silent assumptions:** When a worker forgets to mention a symptom (for example, whether the mother has a headache), conversational LLMs frequently default that omission to "absent" or "normal." In obstetric care, unmentioned data is unknown data, not negative data.
+- **Diagnostic hallucination:** General-purpose language models often attempt to diagnose conditions, prescribe drugs, or generate false reassurance without clinical grounds.
+- **Vernacular failure:** Frontline speech is heavily code-mixed (regional mother tongue blended with English clinical loanwords like "BP", "tablets", or "weeks"). Generic speech engines produce high word error rates on Indian accents and dialects.
+
+### 3. The Copilot Solution
+The ASHA ANC Home-Visit Copilot replaces open-ended chatting with a strictly bounded voice pipeline:
+
+```
+Frontline Speech (hi-IN, mr-IN, te-IN, ta-IN, ml-IN, en-IN)
+   │
+   ▼
+Gnani Prisma v3.0 (Indic Speech-to-Text via https://api.vachana.ai/stt/v3)
+   │
+   ▼
+Gemini 2.5 Flash / Evon v3.3 (Constrained Fact Extraction into Tri-State JSON)
+   │
+   ▼
+Deterministic Python Rule Engine (MoHFW & PMSMA Clinical Rules)
+   ├─► Immediate Emergency Bypass (Convulsions, Hemorrhage, Severe Pain -> URGENT_REFERRAL)
+   ├─► Pre-Eclampsia Gap Priority (High BP or Edema prioritizes headache/vision questions)
+   └─► Max 2 Spoken Follow-Ups via Gnani Timbre v2.5 TTS (Fixed Reviewed Templates)
+   │
+   ▼
+Spoken Read-Back & Conflict Resolution -> Final Verified Clinical Referral Banner
+```
+
+### 4. Technical Architecture and Safety Guarantees
+
+1. **Indic Speech Recognition with Gnani Prisma v3.0:**
+   The ASHA worker speaks naturally in Hindi, Marathi, Telugu, Tamil, Malayalam, or Indian English. The audio is captured in browser memory as 16 kHz mono PCM and transcribed by Gnani Prisma v3.0 using Indian clinical vocabulary hints.
+
+2. **Strict Tri-State Fact Extraction:**
+   The extraction layer maps spoken transcripts into an explicit schema where every clinical symptom is strictly `present`, `denied`, or `not_mentioned`. Silence remains `not_mentioned` and is surfaced as an open data gap. Every finding requires an exact verbatim evidence span from the transcript. The model is barred from assigning referral categories.
+
+3. **Deterministic MoHFW / PMSMA Rule Evaluation:**
+   Referral logic is executed entirely in pure Python ([`app/rules.py`](app/rules.py)) against Ministry of Health and Family Welfare (MoHFW) guidelines:
+   - **Emergency Bypass (`RULE-EMG-01` to `04`):** Vaginal bleeding, convulsions, severe headache with blurred vision, or severe abdominal pain immediately halt follow-up turns and trigger an immediate urgent referral alert.
+   - **Pre-Eclampsia Prioritization:** A blood pressure at or above 140/90 mmHg or visible swelling automatically promotes headache and vision questions to the top of the inquiry queue.
+   - **Gestational Stage Gate (`STAGE-GATE-01`):** Fetal movement is only required after 20 weeks gestation, preventing false alarms in early pregnancy.
+
+4. **Reviewed Spoken Follow-Ups with Gnani Timbre v2.5:**
+   When required safety fields are missing, the system synthesizes targeted voice questions in the worker's selected language using Gnani Timbre v2.5 TTS. Questions are selected exclusively from a pre-reviewed catalog ([`app/templates/questions.json`](app/templates/questions.json)). The model cannot invent novel medical questions. Follow-up turns are capped at two.
+
+5. **Spoken Read-Back and Conflict Resolution:**
+   The system reads back extracted numerical values (blood pressure and gestational weeks) for verbal or manual confirmation. Conflicting entries cannot overwrite earlier verified records without explicit confirmation.
+
+6. **Privacy and Compliance:**
+   Voice audio is processed in volatile memory. No patient audio files or voice biometric prints are persisted to disk or external databases.
+
+### 5. Verification and Deliverables
+- **Offline Test Suite:** 70 unit and integration tests passing (`pytest -q`), verifying extraction schema boundaries, negation handling, noise resistance (clean, 15 dB SNR, 5 dB SNR), and offline fallback.
+- **Zero Hallucination Referrals:** 100% of referral decisions are produced by rule functions with exact source citations.
+- **Live Deployment:** Production service hosted on Render at `https://asha-anc-copilot.onrender.com`.
+
+---
 
 ## Problem and solution
 
