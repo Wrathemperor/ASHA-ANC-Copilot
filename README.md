@@ -5,7 +5,7 @@
 [![Live Web Application](https://img.shields.io/badge/Live_Demo-asha--anc--copilot.onrender.com-0ea968?style=for-the-badge&logo=render&logoColor=white)](https://asha-anc-copilot.onrender.com)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-ASHA--ANC--Copilot-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Wrathemperor/ASHA-ANC-Copilot)
 [![Demo Video](https://img.shields.io/badge/Demo_Video-Watch_Walkthrough-0b8a54?style=for-the-badge&logo=video&logoColor=white)](assets/demo.mp4)
-[![Tests Passing](https://img.shields.io/badge/Tests-70_Passed-blue?style=for-the-badge&logo=pytest&logoColor=white)](#run-the-tests)
+[![Tests Passing](https://img.shields.io/badge/Tests-82_Passed-blue?style=for-the-badge&logo=pytest&logoColor=white)](#run-the-tests)
 
 A voice-first, browser-based clinical record-keeping copilot that helps Accredited Social Health Activists (ASHA workers) document antenatal care (ANC) home visits, catch missing danger signs, and surface deterministic clinician-referral flags in Indic languages.
 
@@ -76,7 +76,9 @@ Spoken Read-Back & Conflict Resolution -> Final Verified Clinical Referral Banne
    Voice audio is processed in volatile memory. No patient audio files or voice biometric prints are persisted to disk or external databases.
 
 ### 5. Verification and Deliverables
-- **Offline Test Suite:** 70 unit and integration tests passing (`pytest -q`), verifying extraction schema boundaries, negation handling, noise resistance (clean, 15 dB SNR, 5 dB SNR), and offline fallback.
+- **Offline Test Suite:** 82 unit and integration tests passing (`pytest -q`), verifying extraction schema boundaries, negation handling, noise resistance (clean, 15 dB SNR, 5 dB SNR), longitudinal trajectory rules, and offline fallback.
+- **Offline PWA & Local Queue:** Progressive Web App shell caching (`service-worker.js`, `manifest.json`) and IndexedDB visit queueing for zero-connectivity field visits.
+- **Persistent Database & Longitudinal Tracking:** SQLite persistence (`app/db.py`) linking visits by RCH ID with trajectory rules (`RULE-LONG-01` to `03`) and printable MoHFW PMSMA clinical referral passes.
 - **Zero Hallucination Referrals:** 100% of referral decisions are produced by rule functions with exact source citations.
 - **Live Deployment:** Production service hosted on Render at `https://asha-anc-copilot.onrender.com`.
 

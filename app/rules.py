@@ -84,7 +84,64 @@ def _high_risk_rule_ids(record: ANCVisitRecord) -> tuple[str, ...]:
     return tuple(matches)
 
 
-def evaluate_visit(record: ANCVisitRecord) -> EvaluationResult:
+def _longitudinal_rule_ids(
+    record: ANCVisitRecord, previous_visits: list[dict[str, Any]] | None
+) -> tuple[str, ...]:
+    if not previous_visits:
+        return ()
+    matches: list[str] = []
+    past = sorted(
+        previous_visits,
+        key=lambda v: (v.get("visit_number") or 0, v.get("gestational_weeks") or 0),
+    )
+    baseline = past[0]
+    latest = past[-1]
+
+    # RULE-LONG-01: Gestational Hypertension Trend (Systolic rise >= 30 or diastolic >= 15 vs baseline)
+    base_sys = baseline.get("bp_systolic")
+    base_dia = baseline.get("bp_diastolic")
+    if (
+        record.bp_systolic is not None
+        and base_sys is not None
+        and (record.bp_systolic - base_sys) >= 30
+    ) or (
+        record.bp_diastolic is not None
+        and base_dia is not None
+        and (record.bp_diastolic - base_dia) >= 15
+    ):
+        matches.append("RULE-LONG-01")
+
+    # RULE-LONG-02: Excessive Weight Gain (>0.5 kg/week and total gain >= 2.0 kg between visits)
+    curr_wt = record.weight_kg
+    prev_wt = latest.get("weight_kg")
+    curr_wk = record.gestational_weeks
+    prev_wk = latest.get("gestational_weeks")
+    if (
+        curr_wt is not None
+        and prev_wt is not None
+        and curr_wk is not None
+        and prev_wk is not None
+        and curr_wk > prev_wk
+    ):
+        delta_wt = curr_wt - prev_wt
+        delta_wk = curr_wk - prev_wk
+        if (delta_wt / delta_wk) > 0.5 and delta_wt >= 2.0:
+            matches.append("RULE-LONG-02")
+
+    # RULE-LONG-03: Rapid Hemoglobin Drop / Severe Anemia (Drop >= 2.0 g/dL or current Hb < 7.0 g/dL)
+    curr_hb = record.hemoglobin
+    prev_hb = latest.get("hemoglobin")
+    if curr_hb is not None:
+        if curr_hb < 7.0 or (prev_hb is not None and (prev_hb - curr_hb) >= 2.0):
+            matches.append("RULE-LONG-03")
+
+    return tuple(matches)
+
+
+def evaluate_visit(
+    record: ANCVisitRecord,
+    previous_visits: list[dict[str, Any]] | None = None,
+) -> EvaluationResult:
     """Evaluate official referral rules and ordered missing-information gaps."""
     emergency_rules = _has_emergency(record)
     if emergency_rules:
@@ -99,6 +156,8 @@ def evaluate_visit(record: ANCVisitRecord) -> EvaluationResult:
         )
 
     rule_ids = list(_high_risk_rule_ids(record))
+    longitudinal_rules = list(_longitudinal_rule_ids(record, previous_visits))
+    rule_ids.extend(longitudinal_rules)
     stage_gate_active = record.gestational_weeks is None or (
         record.gestational_weeks >= 20 and _is_missing(record, "reduced_fetal_movement")
     )
@@ -135,7 +194,9 @@ def evaluate_visit(record: ANCVisitRecord) -> EvaluationResult:
     top_gaps = missing_fields
     voice_followup_gaps = top_gaps[:2]
     incomplete_fields = top_gaps[2:]
-    has_referral = any(rule_id.startswith("RULE-HRP-") for rule_id in rule_ids)
+    has_referral = any(
+        rule_id.startswith(("RULE-HRP-", "RULE-LONG-")) for rule_id in rule_ids
+    )
     if has_referral:
         flag = CLINICIAN_REFERRAL
     elif top_gaps:

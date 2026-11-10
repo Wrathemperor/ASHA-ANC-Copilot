@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 import subprocess
 import wave
+from dataclasses import asdict
+from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.encoders import jsonable_encoder
@@ -12,6 +14,7 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from app.db import Database, init_db
 from app.gnani.demo import demo_offline_enabled
 from app.session import SessionManager, SessionState
 
@@ -19,14 +22,33 @@ TARGET_RATE = 16_000
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
 app = FastAPI(title="Voice ANC Home-Visit Copilot")
 app.state.session_manager = SessionManager()
+app.state.db = init_db(seed=True)
 
 
 class SessionStartRequest(BaseModel):
     language: str = "hi-IN"
 
 
+class PatientCreateRequest(BaseModel):
+    rch_id: str
+    name: str
+    age: int | None = None
+    village: str | None = None
+    edd: str | None = None
+
+
+class LinkPatientRequest(BaseModel):
+    rch_id: str
+
+
 def _session_manager() -> SessionManager:
     return app.state.session_manager
+
+
+def _db() -> Database:
+    if not hasattr(app.state, "db") or app.state.db is None:
+        app.state.db = init_db(seed=True)
+    return app.state.db
 
 
 def _session_response(session: SessionState) -> dict[str, object]:
@@ -158,6 +180,137 @@ def manual_edit(session_id: str, updates: dict[str, object]) -> dict[str, object
 @app.get("/api/session/{session_id}")
 def get_session(session_id: str) -> dict[str, object]:
     return _session_response(_get_session_or_404(_session_manager(), session_id))
+
+
+@app.get("/api/patients")
+def list_patients(query: str | None = None) -> list[dict[str, Any]]:
+    return [asdict(p) for p in _db().list_patients(query)]
+
+
+@app.post("/api/patients")
+def create_patient(req: PatientCreateRequest) -> dict[str, Any]:
+    patient = _db().create_patient(
+        rch_id=req.rch_id,
+        name=req.name,
+        age=req.age,
+        village=req.village,
+        edd=req.edd,
+    )
+    return asdict(patient)
+
+
+@app.get("/api/patients/{rch_id}/history")
+def get_patient_history(rch_id: str) -> dict[str, Any]:
+    patient = _db().get_patient_by_rch(rch_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {rch_id} not found.")
+    visits = _db().get_patient_visits(patient.id)
+    return {"patient": asdict(patient), "visits": [asdict(v) for v in visits]}
+
+
+@app.post("/api/session/{session_id}/link-patient")
+def link_patient(session_id: str, req: LinkPatientRequest) -> dict[str, Any]:
+    manager = _session_manager()
+    session = _get_session_or_404(manager, session_id)
+    patient = _db().get_patient_by_rch(req.rch_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {req.rch_id} not found.")
+    visits = _db().get_patient_visits(patient.id)
+    updated = manager.link_patient(session_id, patient, visits)
+    return _session_response(updated)
+
+
+@app.post("/api/session/{session_id}/save-to-db")
+def save_visit_to_db(session_id: str) -> dict[str, Any]:
+    manager = _session_manager()
+    session = _get_session_or_404(manager, session_id)
+    if not session.patient_id:
+        raise HTTPException(status_code=400, detail="Session has no linked patient.")
+
+    past_visits = _db().get_patient_visits(session.patient_id)
+    next_visit_number = len(past_visits) + 1
+
+    tri_state_data = {
+        field_name: getattr(session.record, field_name)
+        for field_name in (
+            "swelling",
+            "severe_headache",
+            "blurred_vision",
+            "reduced_fetal_movement",
+            "vaginal_bleeding",
+            "convulsions",
+            "severe_abdominal_pain",
+            "fever",
+            "leaking_fluid",
+            "anemia_or_low_hb_mentioned",
+            "ifa_tablets_taken",
+            "calcium_tablets_taken",
+        )
+    }
+
+    saved = _db().save_visit(
+        patient_id=session.patient_id,
+        session_id=session.session_id,
+        visit_number=next_visit_number,
+        gestational_weeks=int(session.record.gestational_weeks)
+        if session.record.gestational_weeks is not None
+        else None,
+        bp_systolic=int(session.record.bp_systolic)
+        if session.record.bp_systolic is not None
+        else None,
+        bp_diastolic=int(session.record.bp_diastolic)
+        if session.record.bp_diastolic is not None
+        else None,
+        weight_kg=float(session.record.weight_kg)
+        if session.record.weight_kg is not None
+        else None,
+        hemoglobin=float(session.record.hemoglobin)
+        if session.record.hemoglobin is not None
+        else None,
+        tri_state_json=tri_state_data,
+        referral_flag=session.evaluation.flag,
+        rule_ids=session.evaluation.rule_ids,
+        evidence_json=session.record.evidence_spans,
+        status="LOCKED" if session.state == "FINAL_LOCKED" else "DRAFT",
+    )
+    return {"status": "ok", "saved_visit": asdict(saved)}
+
+
+@app.get("/api/session/{session_id}/referral-slip")
+def get_referral_slip(session_id: str) -> dict[str, Any]:
+    manager = _session_manager()
+    session = _get_session_or_404(manager, session_id)
+    patient = None
+    if session.patient_id:
+        p_obj = _db().get_patient_by_id(session.patient_id)
+        if p_obj:
+            patient = asdict(p_obj)
+
+    qr_payload = (
+        f"RCH:{patient.get('rch_id') if patient else 'UNLINKED'}|"
+        f"FLAG:{session.evaluation.flag}|"
+        f"RULES:{','.join(session.evaluation.rule_ids)}|"
+        f"BP:{session.record.bp_systolic}/{session.record.bp_diastolic}|"
+        f"WEEKS:{session.record.gestational_weeks}"
+    )
+
+    return {
+        "session_id": session.session_id,
+        "patient": patient,
+        "referral_flag": session.evaluation.flag,
+        "emergency_bypass": session.evaluation.emergency_bypass,
+        "rule_ids": session.evaluation.rule_ids,
+        "citations": session.evaluation.citations,
+        "vitals": {
+            "gestational_weeks": session.record.gestational_weeks,
+            "bp_systolic": session.record.bp_systolic,
+            "bp_diastolic": session.record.bp_diastolic,
+            "weight_kg": session.record.weight_kg,
+            "hemoglobin": session.record.hemoglobin,
+        },
+        "evidence_spans": session.record.evidence_spans,
+        "qr_code_data": qr_payload,
+    }
 
 
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")

@@ -61,6 +61,9 @@ class SessionState:
     audio_playback_b64: str | None = None
     prompt_text: str | None = None
     asked_gap_fields: list[str] = field(default_factory=list)
+    patient_id: str | None = None
+    linked_patient: dict[str, Any] | None = None
+    previous_visits: list[dict[str, Any]] = field(default_factory=list)
 
 
 class SessionManager:
@@ -247,7 +250,9 @@ class SessionManager:
             return self._halt_repeat(session, f"Extraction failed: {error}")
 
         session.state = TURN1_EXTRACTED
-        session.evaluation = evaluate_visit(session.record)
+        session.evaluation = evaluate_visit(
+            session.record, previous_visits=session.previous_visits
+        )
         if session.evaluation.emergency_bypass:
             session.state = EMERGENCY_HALT
             session.halt_reason = "Emergency referral rule triggered."
@@ -281,7 +286,9 @@ class SessionManager:
             asdict(conflict) for conflict in session.record.conflicts
         ]
         session.followup_turn_count += 1
-        session.evaluation = evaluate_visit(session.record)
+        session.evaluation = evaluate_visit(
+            session.record, previous_visits=session.previous_visits
+        )
         if session.evaluation.emergency_bypass:
             session.state = EMERGENCY_HALT
             session.halt_reason = "Emergency referral rule triggered during follow-up."
@@ -333,7 +340,9 @@ class SessionManager:
                 if correction.evidence:
                     session.record.evidence_spans[field_name] = correction.evidence
             session.readback_attempts += 1
-            session.evaluation = evaluate_visit(session.record)
+            session.evaluation = evaluate_visit(
+                session.record, previous_visits=session.previous_visits
+            )
             session.state = MANUAL_EDIT_REQUIRED
             session.halt_reason = "Numeric correction applied; verify and finalize using the edit card."
             return session
@@ -363,8 +372,47 @@ class SessionManager:
             raise ValueError(f"Invalid manual-edit values: {error}") from error
 
         session.conflicts.clear()
-        session.evaluation = evaluate_visit(session.record)
+        session.evaluation = evaluate_visit(
+            session.record, previous_visits=session.previous_visits
+        )
         session.state = FINAL_LOCKED
+        session.halt_reason = None
+        session.current_gap_field = None
+        session.audio_playback_b64 = None
+        return session
+
+    def link_patient(
+        self,
+        session_id: str,
+        patient_record: Any,
+        previous_visits: list[Any],
+    ) -> SessionState:
+        session = self.get_session(session_id)
+        session.patient_id = patient_record.id
+        session.linked_patient = {
+            "id": patient_record.id,
+            "rch_id": patient_record.rch_id,
+            "name": patient_record.name,
+            "age": patient_record.age,
+            "village": patient_record.village,
+            "edd": patient_record.edd,
+        }
+        session.previous_visits = [
+            {
+                "visit_number": v.visit_number,
+                "gestational_weeks": v.gestational_weeks,
+                "bp_systolic": v.bp_systolic,
+                "bp_diastolic": v.bp_diastolic,
+                "weight_kg": v.weight_kg,
+                "hemoglobin": v.hemoglobin,
+                "referral_flag": v.referral_flag,
+            }
+            for v in previous_visits
+        ]
+        session.evaluation = evaluate_visit(
+            session.record, previous_visits=session.previous_visits
+        )
+        return session
         session.halt_reason = None
         session.current_gap_field = None
         session.audio_playback_b64 = None

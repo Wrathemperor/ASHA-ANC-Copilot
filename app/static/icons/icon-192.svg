@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="36" fill="#0ea968"/>
+  <circle cx="96" cy="96" r="64" fill="#ffffff" opacity="0.15"/>
+  <!-- Mother and child / medical cross symbol -->
+  <path d="M96 48 C72 48 56 64 56 88 C56 116 88 136 96 144 C104 136 136 116 136 88 C136 64 120 48 96 48 Z" fill="#ffffff"/>
+  <circle cx="96" cy="84" r="14" fill="#0ea968"/>
+</svg>

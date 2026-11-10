@@ -22,6 +22,8 @@ class ANCVisitRecord:
     gestational_weeks: int | float | None = None
     bp_systolic: int | float | None = None
     bp_diastolic: int | float | None = None
+    weight_kg: float | None = None
+    hemoglobin: float | None = None
     swelling: TriState = "not_mentioned"
     severe_headache: TriState = "not_mentioned"
     blurred_vision: TriState = "not_mentioned"

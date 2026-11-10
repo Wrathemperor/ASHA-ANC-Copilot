@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.svg">
   <link rel="stylesheet" href="/styles.css">
   <script src="/app.js" defer></script>
 </head>
@@ -71,7 +73,28 @@
         </div>
       </div>
 
+      <div class="topbar-center">
+        <div class="patient-picker-field">
+          <label for="patient-select" class="meta-label">EXPECTANT MOTHER (RCH ID)</label>
+          <div class="patient-picker-row">
+            <div class="select-wrap patient-wrap">
+              <select id="patient-select">
+                <option value="">Select registered mother...</option>
+              </select>
+            </div>
+            <button id="add-patient-btn" class="secondary-button mini-btn" type="button" title="Register New Mother">+ New</button>
+          </div>
+        </div>
+      </div>
+
       <div class="topbar-right">
+        <div id="network-pill" class="network-pill online" title="Connectivity">
+          <span class="network-dot" aria-hidden="true"></span>
+          <span id="network-text">Online</span>
+        </div>
+        <button id="sync-queue-btn" class="sync-queue-btn" type="button" hidden title="Sync locally queued visits">
+          Sync (<span id="queue-count">0</span>)
+        </button>
         <div class="control-field">
           <label for="language-select" class="meta-label">VISIT LANGUAGE</label>
           <div class="select-wrap">
@@ -190,6 +213,18 @@
             <span id="visit-state" class="state-chip">Waiting for visit</span>
           </div>
 
+          <!-- Longitudinal Patient Context & History -->
+          <div id="patient-banner" class="patient-banner" hidden>
+            <div class="patient-banner-main">
+              <div class="patient-id-badge">
+                <span class="patient-name" id="banner-patient-name">—</span>
+                <span class="patient-rch" id="banner-patient-rch">RCH: —</span>
+              </div>
+              <span class="patient-meta" id="banner-patient-meta">Age: — | Village: — | EDD: —</span>
+            </div>
+            <div class="longitudinal-timeline" id="patient-timeline"></div>
+          </div>
+
           <!-- Vitals Grid -->
           <div class="vitals-grid">
             <label class="vital-tile" for="weeks-input">
@@ -206,6 +241,20 @@
                 <span class="bp-divider" aria-hidden="true">/</span>
                 <input id="bp-dia-input" name="bp_diastolic" type="number" min="0" max="200" inputmode="numeric" placeholder="DIA">
                 <span class="vital-unit">mmHg</span>
+              </span>
+            </label>
+            <label class="vital-tile" for="weight-input">
+              <span class="vital-title">Weight</span>
+              <span class="vital-entry">
+                <input id="weight-input" name="weight_kg" type="number" step="0.1" min="30" max="150" inputmode="decimal" placeholder="—">
+                <span class="vital-unit">kg</span>
+              </span>
+            </label>
+            <label class="vital-tile" for="hb-input">
+              <span class="vital-title">Hemoglobin</span>
+              <span class="vital-entry">
+                <input id="hb-input" name="hemoglobin" type="number" step="0.1" min="2" max="20" inputmode="decimal" placeholder="—">
+                <span class="vital-unit">g/dL</span>
               </span>
             </label>
           </div>
@@ -268,7 +317,9 @@
           <div id="rule-details" class="rule-details"></div>
           <div id="final-incomplete" class="incomplete-warning" hidden></div>
           <div class="referral-actions">
-            <button id="new-visit-button" class="primary-button new-visit-btn" type="button">Start New Visit / Reset</button>
+            <button id="view-referral-slip-btn" class="secondary-button slip-btn" type="button">📄 View &amp; Print Referral Slip</button>
+            <button id="save-to-db-btn" class="primary-button save-db-btn" type="button">Save to Mother's Record</button>
+            <button id="new-visit-button" class="secondary-button new-visit-btn" type="button">Start New Visit / Reset</button>
           </div>
         </div>
       </section>
@@ -278,6 +329,126 @@
     <footer class="workspace-footer">
       <p>Information support only. A registered medical officer/clinician makes all clinical diagnoses and decisions under MoHFW PMSMA protocols.</p>
     </footer>
+  </div>
+
+  <!-- Register Mother Modal Dialog -->
+  <div id="register-modal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="dialog" aria-labelledby="reg-modal-title">
+      <div class="modal-header">
+        <h3 id="reg-modal-title" class="modal-title">Register Expectant Mother</h3>
+        <button id="close-reg-modal" class="close-icon-btn" type="button" aria-label="Close dialog">&times;</button>
+      </div>
+      <form id="register-mother-form" class="modal-form">
+        <div class="form-group">
+          <label for="reg-rch" class="meta-label">RCH ID (12 DIGITS)</label>
+          <input id="reg-rch" type="text" pattern="[0-9]{10,12}" required placeholder="e.g. 109283748291" class="text-input">
+        </div>
+        <div class="form-group">
+          <label for="reg-name" class="meta-label">FULL NAME</label>
+          <input id="reg-name" type="text" required placeholder="e.g. Sunita Devi" class="text-input">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="reg-age" class="meta-label">AGE (YEARS)</label>
+            <input id="reg-age" type="number" min="15" max="50" placeholder="24" class="text-input">
+          </div>
+          <div class="form-group">
+            <label for="reg-village" class="meta-label">VILLAGE / WARD</label>
+            <input id="reg-village" type="text" placeholder="Rampur" class="text-input">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="reg-edd" class="meta-label">ESTIMATED DELIVERY DATE (EDD)</label>
+          <input id="reg-edd" type="date" class="text-input">
+        </div>
+        <div class="modal-actions">
+          <button id="cancel-reg-btn" type="button" class="secondary-button">Cancel</button>
+          <button type="submit" class="primary-button">Save &amp; Select Mother</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Official MoHFW PMSMA Referral Slip Modal -->
+  <div id="referral-slip-modal" class="modal-backdrop" hidden>
+    <div class="modal-card referral-slip-card" role="dialog" aria-labelledby="slip-title">
+      <div class="modal-header slip-header">
+        <div>
+          <span class="meta-label">MINISTRY OF HEALTH &amp; FAMILY WELFARE — PMSMA</span>
+          <h3 id="slip-title" class="modal-title">Antenatal Clinical Referral Slip</h3>
+        </div>
+        <div class="header-right-actions no-print">
+          <button id="print-slip-btn" class="primary-button print-btn" type="button">🖨️ Print / Save PDF</button>
+          <button id="close-slip-modal" class="close-icon-btn" type="button" aria-label="Close dialog">&times;</button>
+        </div>
+      </div>
+
+      <div class="printable-slip-content" id="printable-slip">
+        <!-- Patient Demographics Header -->
+        <div class="slip-patient-grid">
+          <div class="slip-cell">
+            <span class="cell-label">MOTHER'S NAME</span>
+            <span class="cell-val" id="slip-patient-name">—</span>
+          </div>
+          <div class="slip-cell">
+            <span class="cell-label">RCH ID</span>
+            <span class="cell-val" id="slip-patient-rch">—</span>
+          </div>
+          <div class="slip-cell">
+            <span class="cell-label">AGE / VILLAGE</span>
+            <span class="cell-val" id="slip-patient-age-village">—</span>
+          </div>
+          <div class="slip-cell">
+            <span class="cell-label">ESTIMATED DUE DATE</span>
+            <span class="cell-val" id="slip-patient-edd">—</span>
+          </div>
+        </div>
+
+        <!-- Referral Status Banner -->
+        <div id="slip-badge" class="slip-referral-banner">
+          <span class="slip-badge-label">REFERRAL CATEGORY:</span>
+          <span class="slip-badge-status" id="slip-flag-text">CLINICIAN REFERRAL</span>
+        </div>
+
+        <!-- Recorded Vitals Summary -->
+        <div class="slip-section">
+          <h4 class="slip-section-title">Visit Vitals Recorded</h4>
+          <div class="slip-vitals-row">
+            <div class="slip-vital-box"><span class="vital-lbl">Gestational Age</span><span class="vital-num" id="slip-weeks">—</span> weeks</div>
+            <div class="slip-vital-box"><span class="vital-lbl">Blood Pressure</span><span class="vital-num" id="slip-bp">—</span> mmHg</div>
+            <div class="slip-vital-box"><span class="vital-lbl">Weight</span><span class="vital-num" id="slip-weight">—</span> kg</div>
+            <div class="slip-vital-box"><span class="vital-lbl">Hemoglobin</span><span class="vital-num" id="slip-hb">—</span> g/dL</div>
+          </div>
+        </div>
+
+        <!-- Identified Danger Signs & Evidence -->
+        <div class="slip-section">
+          <h4 class="slip-section-title">Identified Obstetric Danger Signs &amp; Spoken Evidence</h4>
+          <div id="slip-danger-list" class="slip-danger-list"></div>
+        </div>
+
+        <!-- Triggered MoHFW Rules & Citations -->
+        <div class="slip-section">
+          <h4 class="slip-section-title">Triggered MoHFW Guidelines &amp; PMSMA Rules</h4>
+          <div id="slip-rule-list" class="slip-rule-list"></div>
+        </div>
+
+        <!-- Machine-Readable QR / Triage Verification Block -->
+        <div class="slip-footer-stamp">
+          <div class="slip-qr-block">
+            <div class="qr-placeholder" id="slip-qr-box">
+              <span class="qr-icon">📱</span>
+              <span class="qr-text">Scan for Hospital Triage</span>
+            </div>
+            <span class="qr-sub" id="slip-qr-payload">RCH: —</span>
+          </div>
+          <div class="slip-sign-block">
+            <p class="sign-line">ASHA Worker Signature / Stamp</p>
+            <p class="sign-date" id="slip-date">Date: —</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </body>
 </html>

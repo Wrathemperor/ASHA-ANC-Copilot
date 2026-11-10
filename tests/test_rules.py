@@ -125,3 +125,91 @@ def test_silence_remains_incomplete_not_a_denial() -> None:
         "swelling",
         "severe_abdominal_pain",
     ]
+
+
+def test_longitudinal_bp_surge_triggers_referral() -> None:
+    current = ANCVisitRecord(
+        gestational_weeks=28,
+        bp_systolic=132,
+        bp_diastolic=82,
+        vaginal_bleeding="denied",
+        convulsions="denied",
+        severe_headache="denied",
+        blurred_vision="denied",
+        swelling="denied",
+        reduced_fetal_movement="denied",
+        severe_abdominal_pain="denied",
+    )
+    previous_visits = [
+        {
+            "visit_number": 1,
+            "gestational_weeks": 12,
+            "bp_systolic": 100,
+            "bp_diastolic": 65,
+            "weight_kg": 46.0,
+            "hemoglobin": 11.5,
+        }
+    ]
+    # Current BP 132/82 is below the 140/90 threshold, but delta systolic is +32 (>= 30).
+    result = evaluate_visit(current, previous_visits=previous_visits)
+    assert "RULE-LONG-01" in result.rule_ids
+    assert result.flag == CLINICIAN_REFERRAL
+
+
+def test_longitudinal_excessive_weight_gain() -> None:
+    current = ANCVisitRecord(
+        gestational_weeks=24,
+        bp_systolic=115,
+        bp_diastolic=75,
+        weight_kg=53.0,
+        vaginal_bleeding="denied",
+        convulsions="denied",
+        severe_headache="denied",
+        blurred_vision="denied",
+        swelling="denied",
+        reduced_fetal_movement="denied",
+        severe_abdominal_pain="denied",
+    )
+    previous_visits = [
+        {
+            "visit_number": 1,
+            "gestational_weeks": 21,
+            "bp_systolic": 110,
+            "bp_diastolic": 70,
+            "weight_kg": 50.0,
+            "hemoglobin": 11.0,
+        }
+    ]
+    result = evaluate_visit(current, previous_visits=previous_visits)
+    assert "RULE-LONG-02" in result.rule_ids
+    assert result.flag == CLINICIAN_REFERRAL
+
+
+def test_longitudinal_severe_hemoglobin_drop() -> None:
+    current = ANCVisitRecord(
+        gestational_weeks=32,
+        bp_systolic=110,
+        bp_diastolic=70,
+        hemoglobin=8.5,
+        vaginal_bleeding="denied",
+        convulsions="denied",
+        severe_headache="denied",
+        blurred_vision="denied",
+        swelling="denied",
+        reduced_fetal_movement="denied",
+        severe_abdominal_pain="denied",
+    )
+    previous_visits = [
+        {
+            "visit_number": 1,
+            "gestational_weeks": 20,
+            "bp_systolic": 110,
+            "bp_diastolic": 70,
+            "weight_kg": 49.0,
+            "hemoglobin": 11.0,
+        }
+    ]
+    result = evaluate_visit(current, previous_visits=previous_visits)
+    assert "RULE-LONG-03" in result.rule_ids
+    assert result.flag == CLINICIAN_REFERRAL
+

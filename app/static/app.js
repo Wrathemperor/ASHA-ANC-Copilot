@@ -52,6 +52,17 @@ function cacheElements() {
     "readback-card", "conflict-list", "readback-numbers", "confirm-button",
     "correction-button", "manual-edit-hint", "referral-card", "referral-heading",
     "referral-details", "rule-details", "final-incomplete", "new-visit-button",
+    "patient-select", "add-patient-btn", "network-pill", "network-text",
+    "sync-queue-btn", "queue-count", "patient-banner", "banner-patient-name",
+    "banner-patient-rch", "banner-patient-meta", "patient-timeline",
+    "weight-input", "hb-input", "view-referral-slip-btn", "save-to-db-btn",
+    "register-modal", "close-reg-modal", "cancel-reg-btn", "register-mother-form",
+    "reg-rch", "reg-name", "reg-age", "reg-village", "reg-edd",
+    "referral-slip-modal", "close-slip-modal", "print-slip-btn",
+    "slip-patient-name", "slip-patient-rch", "slip-patient-age-village",
+    "slip-patient-edd", "slip-badge", "slip-flag-text", "slip-weeks",
+    "slip-bp", "slip-weight", "slip-hb", "slip-danger-list", "slip-rule-list",
+    "slip-qr-box", "slip-qr-payload", "slip-date",
   ].forEach((id) => { elements[id] = document.getElementById(id); });
 }
 
@@ -182,6 +193,11 @@ function renderSession(data) {
     setInputValue(elements["weeks-input"], data.record.gestational_weeks);
     setInputValue(elements["bp-sys-input"], data.record.bp_systolic);
     setInputValue(elements["bp-dia-input"], data.record.bp_diastolic);
+    setInputValue(elements["weight-input"], data.record.weight_kg);
+    setInputValue(elements["hb-input"], data.record.hemoglobin);
+    if (elements["save-to-db-btn"]) {
+      elements["save-to-db-btn"].disabled = data.state !== "FINAL_LOCKED" || !data.patient_id;
+    }
   }
 }
 
@@ -332,15 +348,31 @@ async function routeRecording(blob) {
     : state === "READBACK_ACTIVE" ? "readback"
       : ["IDLE", "HALT_REPEAT"].includes(state) ? "turn1" : null;
   if (!endpoint) throw new Error("The current session is not ready for a voice response.");
+
+  if (!navigator.onLine) {
+    const currentRch = elements["patient-select"]?.value || null;
+    await queueOfflineAudio(blob, endpoint, currentRch);
+    return;
+  }
+
   setMicState("PROCESSING", endpoint === "turn1"
     ? "Transcribing via Prisma and extracting with Evon..."
     : "Transcribing your response and updating the register...");
   const form = new FormData();
   form.append("audio", blob, "visit.wav");
   await withBusy(async () => {
-    updateSession(await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/${endpoint}`, {
-      method: "POST", body: form,
-    }));
+    try {
+      updateSession(await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/${endpoint}`, {
+        method: "POST", body: form,
+      }));
+    } catch (err) {
+      if (!navigator.onLine || err.message.includes("Failed to fetch") || err.message.includes("offline")) {
+        const currentRch = elements["patient-select"]?.value || null;
+        await queueOfflineAudio(blob, endpoint, currentRch);
+      } else {
+        throw err;
+      }
+    }
   });
 }
 
@@ -542,6 +574,8 @@ async function submitManualEdits() {
     gestational_weeks: numberOrNull(elements["weeks-input"].value),
     bp_systolic: numberOrNull(elements["bp-sys-input"].value),
     bp_diastolic: numberOrNull(elements["bp-dia-input"].value),
+    weight_kg: numberOrNull(elements["weight-input"].value),
+    hemoglobin: numberOrNull(elements["hb-input"].value),
   };
   Object.keys(updates).forEach((key) => {
     if (updates[key] === null && pendingManualUpdates[key] === undefined) delete updates[key];
@@ -556,6 +590,281 @@ async function submitManualEdits() {
     resolvedConflictFields = new Set();
     updateSession(result);
   });
+}
+
+// -------------------------------------------------------------
+// Phase 1: Offline-First Queue (IndexedDB)
+// -------------------------------------------------------------
+const OFFLINE_DB_NAME = "AshaAncOfflineDB";
+const OFFLINE_STORE = "offline_visits";
+
+function getOfflineDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(OFFLINE_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(OFFLINE_STORE)) {
+        db.createObjectStore(OFFLINE_STORE, { keyPath: "id", autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function queueOfflineAudio(blob, endpoint, rchId) {
+  try {
+    const db = await getOfflineDB();
+    const tx = db.transaction(OFFLINE_STORE, "readwrite");
+    tx.objectStore(OFFLINE_STORE).add({
+      blob,
+      endpoint,
+      rchId,
+      language: elements["language-select"]?.value || "hi-IN",
+      timestamp: new Date().toISOString(),
+    });
+    await new Promise((res) => { tx.oncomplete = res; });
+    updateNetworkStatus();
+    setMicState("IDLE", "Offline: visit recording saved to device queue. Tap Sync Queue when connected.");
+  } catch (err) {
+    console.error("Failed to queue offline visit:", err);
+  }
+}
+
+async function getQueuedCount() {
+  try {
+    const db = await getOfflineDB();
+    const tx = db.transaction(OFFLINE_STORE, "readonly");
+    return new Promise((res) => {
+      const countReq = tx.objectStore(OFFLINE_STORE).count();
+      countReq.onsuccess = () => res(countReq.result);
+      countReq.onerror = () => res(0);
+    });
+  } catch {
+    return 0;
+  }
+}
+
+async function syncOfflineQueue() {
+  const count = await getQueuedCount();
+  if (!count) return;
+  setMicState("PROCESSING", `Syncing ${count} queued visit(s) to server...`);
+  try {
+    const db = await getOfflineDB();
+    const tx = db.transaction(OFFLINE_STORE, "readwrite");
+    const store = tx.objectStore(OFFLINE_STORE);
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = async () => {
+      const items = getAllReq.result;
+      for (const item of items) {
+        try {
+          const start = await apiRequest("/api/session/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ language: item.language }),
+          });
+          if (item.rchId) {
+            await apiRequest(`/api/session/${start.session_id}/link-patient`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rch_id: item.rchId }),
+            });
+          }
+          const form = new FormData();
+          form.append("audio", item.blob, "visit.wav");
+          const res = await apiRequest(`/api/session/${start.session_id}/turn1`, {
+            method: "POST",
+            body: form,
+          });
+          sessionId = start.session_id;
+          updateSession(res);
+        } catch (e) {
+          console.error("Queue item sync error:", e);
+        }
+      }
+      const clearTx = db.transaction(OFFLINE_STORE, "readwrite");
+      clearTx.objectStore(OFFLINE_STORE).clear();
+      clearTx.oncomplete = () => {
+        updateNetworkStatus();
+        setMicState("IDLE", "Queued visits synchronized successfully!");
+      };
+    };
+  } catch (e) {
+    setMicState("IDLE", `Sync failed: ${e.message}`);
+  }
+}
+
+async function updateNetworkStatus() {
+  const isOnline = navigator.onLine;
+  if (elements["network-pill"]) {
+    elements["network-pill"].className = `network-pill ${isOnline ? "online" : "offline"}`;
+  }
+  if (elements["network-text"]) {
+    elements["network-text"].textContent = isOnline ? "Online" : "Offline";
+  }
+  const count = await getQueuedCount();
+  if (elements["sync-queue-btn"]) {
+    elements["sync-queue-btn"].hidden = count === 0;
+  }
+  if (elements["queue-count"]) {
+    elements["queue-count"].textContent = String(count);
+  }
+}
+
+// -------------------------------------------------------------
+// Phase 2: Patient Selector & History Timeline
+// -------------------------------------------------------------
+async function loadPatientList(selectRch = null) {
+  try {
+    const list = await apiRequest("/api/patients", {}, false);
+    const sel = elements["patient-select"];
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Select registered mother...</option>';
+    list.forEach((p) => {
+      const opt = document.createElement("option");
+      opt.value = p.rch_id;
+      opt.textContent = `${p.name} (RCH: ${p.rch_id})${p.village ? " · " + p.village : ""}`;
+      sel.appendChild(opt);
+    });
+    if (selectRch) {
+      sel.value = selectRch;
+      await onSelectPatient(selectRch);
+    }
+  } catch (e) {
+    console.error("loadPatientList error:", e);
+  }
+}
+
+async function onSelectPatient(rchId) {
+  if (!rchId) {
+    elements["patient-banner"].hidden = true;
+    return;
+  }
+  try {
+    const data = await apiRequest(`/api/patients/${encodeURIComponent(rchId)}/history`, {}, false);
+    const p = data.patient;
+    elements["banner-patient-name"].textContent = p.name;
+    elements["banner-patient-rch"].textContent = `RCH: ${p.rch_id}`;
+    elements["banner-patient-meta"].textContent = `Age: ${p.age || "—"} | Village: ${p.village || "—"} | EDD: ${p.edd || "—"}`;
+    elements["patient-banner"].hidden = false;
+
+    // Render longitudinal timeline chips
+    const timeline = elements["patient-timeline"];
+    timeline.replaceChildren();
+    const visits = data.visits || [];
+    visits.forEach((v) => {
+      const chip = document.createElement("div");
+      chip.className = `timeline-chip ${v.referral_flag ? "flagged" : ""}`;
+      const title = document.createElement("span");
+      title.className = "chip-title";
+      title.textContent = `Visit ${v.visit_number} (${v.gestational_weeks || "—"} wks)`;
+      const vitals = document.createElement("span");
+      vitals.className = "chip-vitals";
+      vitals.textContent = `BP ${v.bp_systolic || "—"}/${v.bp_diastolic || "—"}${v.weight_kg ? " · " + v.weight_kg + "kg" : ""}`;
+      chip.append(title, vitals);
+      timeline.append(chip);
+    });
+
+    // Link patient to active session if session exists
+    if (sessionId) {
+      const updated = await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/link-patient`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rch_id: rchId }),
+      });
+      updateSession(updated);
+    }
+  } catch (err) {
+    console.error("Error loading patient history:", err);
+  }
+}
+
+// -------------------------------------------------------------
+// Referral Slip View & Modal
+// -------------------------------------------------------------
+async function openReferralSlip() {
+  if (!sessionId) return;
+  try {
+    const slip = await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/referral-slip`, {}, false);
+    const p = slip.patient || {};
+    elements["slip-patient-name"].textContent = p.name || "Expectant Mother (Unlinked)";
+    elements["slip-patient-rch"].textContent = p.rch_id || "Unregistered / Walk-in";
+    elements["slip-patient-age-village"].textContent = `${p.age ? p.age + " yrs" : "—"} · ${p.village || "—"}`;
+    elements["slip-patient-edd"].textContent = p.edd || "Not recorded";
+
+    const isUrgent = slip.emergency_bypass || slip.referral_flag === "URGENT_REFERRAL";
+    elements["slip-badge"].className = `slip-referral-banner ${isUrgent ? "urgent" : "clinician"}`;
+    elements["slip-flag-text"].textContent = isUrgent
+      ? "EMERGENCY: IMMEDIATE REFERRAL TO FRU / HOSPITAL"
+      : "CLINICIAN REFERRAL REQUIRED";
+
+    const v = slip.vitals || {};
+    elements["slip-weeks"].textContent = displayValue(v.gestational_weeks);
+    elements["slip-bp"].textContent = v.bp_systolic && v.bp_diastolic ? `${v.bp_systolic}/${v.bp_diastolic}` : "—";
+    elements["slip-weight"].textContent = displayValue(v.weight_kg);
+    elements["slip-hb"].textContent = displayValue(v.hemoglobin);
+
+    // Dangers
+    const dangerList = elements["slip-danger-list"];
+    dangerList.replaceChildren();
+    const record = sessionData?.record || {};
+    const evidenceSpans = slip.evidence_spans || {};
+    let dangerFound = false;
+    SYMPTOMS.forEach(([field, label]) => {
+      if (record[field] === "present") {
+        dangerFound = true;
+        const item = document.createElement("div");
+        item.className = "slip-danger-item";
+        const title = document.createElement("span");
+        title.className = "slip-danger-title";
+        title.textContent = `⚠️ ${label} (Present)`;
+        item.appendChild(title);
+        if (evidenceSpans[field]) {
+          const ev = document.createElement("span");
+          ev.className = "slip-danger-evidence";
+          ev.textContent = `“${evidenceSpans[field]}”`;
+          item.appendChild(ev);
+        }
+        dangerList.appendChild(item);
+      }
+    });
+    if (!dangerFound) {
+      dangerList.textContent = "No acute danger symptoms marked as present.";
+    }
+
+    // Rules
+    const ruleList = elements["slip-rule-list"];
+    ruleList.replaceChildren();
+    (slip.rule_ids || []).forEach((ruleId) => {
+      const r = document.createElement("div");
+      r.style.fontSize = "11px";
+      r.style.marginBottom = "3px";
+      r.innerHTML = `<strong>${ruleId}</strong>: ${citationTitle(ruleId)}`;
+      ruleList.appendChild(r);
+    });
+
+    elements["slip-qr-payload"].textContent = slip.qr_code_data;
+    elements["slip-date"].textContent = `Generated: ${new Date().toLocaleDateString("en-IN")}`;
+    elements["referral-slip-modal"].hidden = false;
+  } catch (err) {
+    alert("Could not load referral slip: " + err.message);
+  }
+}
+
+async function saveCurrentVisitToDb() {
+  if (!sessionId) return;
+  try {
+    const res = await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/save-to-db`, {
+      method: "POST",
+    });
+    if (res.status === "ok") {
+      alert(`Visit successfully saved to mother's record (Visit #${res.saved_visit.visit_number})!`);
+      const sel = elements["patient-select"];
+      if (sel?.value) onSelectPatient(sel.value);
+    }
+  } catch (err) {
+    alert("Error saving visit to database: " + err.message);
+  }
 }
 
 function numberOrNull(value) { return value === "" ? null : Number(value); }
@@ -587,11 +896,66 @@ function bindEvents() {
       : "The voice correction was already used. Edit the values and save.");
   });
   elements["new-visit-button"].addEventListener("click", () => withBusy(createSession));
+
+  // Patient & Modal Events
+  elements["patient-select"]?.addEventListener("change", (e) => onSelectPatient(e.target.value));
+  elements["add-patient-btn"]?.addEventListener("click", () => {
+    elements["register-modal"].hidden = false;
+  });
+  elements["close-reg-modal"]?.addEventListener("click", () => {
+    elements["register-modal"].hidden = true;
+  });
+  elements["cancel-reg-btn"]?.addEventListener("click", () => {
+    elements["register-modal"].hidden = true;
+  });
+  elements["register-mother-form"]?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const rch = elements["reg-rch"].value.trim();
+    const name = elements["reg-name"].value.trim();
+    const age = numberOrNull(elements["reg-age"].value);
+    const village = elements["reg-village"].value.trim();
+    const edd = elements["reg-edd"].value;
+    try {
+      await apiRequest("/api/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rch_id: rch, name, age, village, edd }),
+      });
+      elements["register-modal"].hidden = true;
+      await loadPatientList(rch);
+    } catch (err) {
+      alert("Failed to register mother: " + err.message);
+    }
+  });
+
+  // Referral Slip Modal Events
+  elements["view-referral-slip-btn"]?.addEventListener("click", openReferralSlip);
+  elements["close-slip-modal"]?.addEventListener("click", () => {
+    elements["referral-slip-modal"].hidden = true;
+  });
+  elements["print-slip-btn"]?.addEventListener("click", () => {
+    window.print();
+  });
+  elements["save-to-db-btn"]?.addEventListener("click", saveCurrentVisitToDb);
+  elements["sync-queue-btn"]?.addEventListener("click", syncOfflineQueue);
+
+  // Network Event Listeners
+  window.addEventListener("online", updateNetworkStatus);
+  window.addEventListener("offline", updateNetworkStatus);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   cacheElements();
   bindEvents();
   if (!LANGUAGES.includes(elements["language-select"].value)) elements["language-select"].value = "hi-IN";
+  updateNetworkStatus();
+  loadPatientList();
   createSession();
+
+  // Service Worker Registration for PWA
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+    });
+  }
 });

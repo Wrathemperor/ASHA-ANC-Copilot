@@ -48,7 +48,6 @@ def test_static_root_serves_register_and_local_assets() -> None:
 
     assert root.status_code == 200
     assert "ASHA ANC Home-Visit Copilot" in root.text
-    assert "Record-Keeping" in root.text
     assert script.status_code == 200
     assert "getUserMedia" in script.text
     assert "decodeAudioData" in script.text
@@ -56,6 +55,20 @@ def test_static_root_serves_register_and_local_assets() -> None:
     assert styles.status_code == 200
     assert "48px" in styles.text
     assert "Upload Audio Clip (.mp3 / .wav)" in root.text
+
+
+def test_pwa_assets_served() -> None:
+    client = TestClient(app)
+    manifest = client.get("/manifest.json")
+    assert manifest.status_code == 200
+    assert "ASHA ANC Home-Visit Copilot" in manifest.text
+
+    sw = client.get("/service-worker.js")
+    assert sw.status_code == 200
+    assert "asha-anc-copilot" in sw.text
+
+    icon192 = client.get("/icons/icon-192.svg")
+    assert icon192.status_code == 200
 
 
 class _RoutePrisma:
