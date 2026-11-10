@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/698eedc9-2e99-4853-b094-870ae3f15ca3
 
 ---
 
-## Solution Pitch and Summary (1-Page Brief)
+## Solution Pitch and Summary
 
 ### 1. Operational Context
 India has over 900,000 Accredited Social Health Activists (ASHAs) serving as the frontline link between expectant mothers and primary health centers. During antenatal care (ANC) home visits, an ASHA worker must record maternal vitals, screen for obstetric danger signs, and ensure timely hospital referrals.
