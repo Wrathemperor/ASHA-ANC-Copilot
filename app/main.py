@@ -156,6 +156,16 @@ async def process_followup(session_id: str, audio: UploadFile = File(...)) -> di
         raise HTTPException(status_code=409, detail=str(error)) from error
 
 
+@app.post("/api/session/{session_id}/clarify")
+def clarify_question(session_id: str) -> dict[str, object]:
+    manager = _session_manager()
+    _get_session_or_404(manager, session_id)
+    try:
+        return _session_response(manager.request_clarification(session_id))
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
 @app.post("/api/session/{session_id}/readback")
 async def process_readback(session_id: str, audio: UploadFile = File(...)) -> dict[str, object]:
     manager = _session_manager()

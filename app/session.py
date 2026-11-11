@@ -60,7 +60,10 @@ class SessionState:
     halt_reason: str | None = None
     audio_playback_b64: str | None = None
     prompt_text: str | None = None
+    original_question: str | None = None
+    clarification_text: str | None = None
     asked_gap_fields: list[str] = field(default_factory=list)
+    interaction_history: list[dict[str, Any]] = field(default_factory=list)
     patient_id: str | None = None
     linked_patient: dict[str, Any] | None = None
     previous_visits: list[dict[str, Any]] = field(default_factory=list)
@@ -168,6 +171,15 @@ class SessionManager:
         session.asked_gap_fields.append(next_gap)
         session.state = FOLLOWUP_ACTIVE
         session.halt_reason = None
+        session.original_question = question
+        session.clarification_text = None
+        session.interaction_history.append({
+            "type": "followup",
+            "field": next_gap,
+            "title": "Follow-up Question",
+            "text": question,
+            "turn": session.followup_turn_count + 1,
+        })
         self._speak(session, question)
         return session
 
@@ -183,20 +195,45 @@ class SessionManager:
 
         session.state = READBACK_ACTIVE
         session.halt_reason = None
-        self._speak(
-            session,
-            template.format(
-                bp_sys=session.record.bp_systolic if session.record.bp_systolic is not None else "",
-                bp_dia=session.record.bp_diastolic if session.record.bp_diastolic is not None else "",
-                weeks=session.record.gestational_weeks if session.record.gestational_weeks is not None else "",
-            ),
+        session.clarification_text = None
+        readback_prompt = template.format(
+            bp_sys=session.record.bp_systolic if session.record.bp_systolic is not None else "",
+            bp_dia=session.record.bp_diastolic if session.record.bp_diastolic is not None else "",
+            weeks=session.record.gestational_weeks if session.record.gestational_weeks is not None else "",
         )
+        session.original_question = readback_prompt
+        session.interaction_history.append({
+            "type": "readback",
+            "field": None,
+            "title": "Visit Confirmation / Read-back",
+            "text": readback_prompt,
+            "turn": session.followup_turn_count + 1,
+        })
+        self._speak(session, readback_prompt)
+        return session
+
+    def _ask_clarification(self, session: SessionState, reason: str) -> SessionState:
+        session.state = FOLLOWUP_ACTIVE
+        session.halt_reason = reason
+        try:
+            prompt = self._question_for(session, "clarify_repeat") or self._question_for(session, "halt_repeat")
+        except (OSError, json.JSONDecodeError, KeyError) as error:
+            prompt = "Please repeat or clarify your answer."
+        session.clarification_text = prompt
+        session.interaction_history.append({
+            "type": "clarification",
+            "field": session.current_gap_field,
+            "title": "Clarification / Repeat Request",
+            "subtitle": reason,
+            "text": prompt,
+            "turn": session.followup_turn_count + 1,
+        })
+        if prompt is not None:
+            self._speak(session, prompt)
         return session
 
     def _halt_repeat(self, session: SessionState, reason: str) -> SessionState:
-        session.state = HALT_REPEAT
         session.halt_reason = reason
-        session.current_gap_field = None
         try:
             prompt = self._question_for(session, "halt_repeat")
         except (OSError, json.JSONDecodeError, KeyError) as error:
@@ -204,6 +241,20 @@ class SessionManager:
             session.audio_playback_b64 = None
             session.halt_reason = f"{reason} Halt-repeat prompt unavailable: {error}"
             return session
+
+        if session.state == FOLLOWUP_ACTIVE and session.original_question is not None:
+            return self._ask_clarification(session, reason)
+
+        session.state = HALT_REPEAT
+        session.current_gap_field = None
+        session.interaction_history.append({
+            "type": "repeat",
+            "field": None,
+            "title": "Repeat Request",
+            "subtitle": reason,
+            "text": prompt,
+            "turn": 0,
+        })
         if prompt is not None:
             self._speak(session, prompt)
         return session
@@ -265,7 +316,7 @@ class SessionManager:
         session = self.get_session(session_id)
         if session.state != FOLLOWUP_ACTIVE:
             raise ValueError("Session is not waiting for a follow-up answer.")
-        previous_question = session.prompt_text
+        previous_question = session.original_question or session.prompt_text
         try:
             transcript = self._transcribe(session, audio_bytes, previous_question)
         except Exception as error:
@@ -297,6 +348,16 @@ class SessionManager:
         if session.followup_turn_count < MAX_FOLLOWUP_TURNS and session.evaluation.voice_followup_gaps:
             return self._ask_followup(session)
         return self._start_readback(session)
+
+    def request_clarification(
+        self,
+        session_id: str,
+        reason: str = "Clarification requested.",
+    ) -> SessionState:
+        session = self.get_session(session_id)
+        if session.state != FOLLOWUP_ACTIVE or not session.original_question:
+            raise ValueError("Session is not waiting for a follow-up answer to clarify.")
+        return self._ask_clarification(session, reason)
 
     def process_readback(self, session_id: str, audio_bytes: bytes) -> SessionState:
         session = self.get_session(session_id)

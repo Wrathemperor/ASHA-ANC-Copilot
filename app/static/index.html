@@ -195,16 +195,64 @@
               <p class="meta-label">VOICE FOLLOW-UP</p>
               <h2 id="interaction-heading" class="card-title">Listen and respond</h2>
             </div>
-            <button id="replay-button" class="secondary-button replay-btn" type="button" aria-label="Replay spoken prompt">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-              Replay
-            </button>
+            <div class="interaction-header-actions">
+              <button id="clarify-button" class="secondary-button clarify-btn" type="button" aria-label="Ask for clarification" title="Ask mother for clarification on this question">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Clarify
+              </button>
+              <button id="replay-button" class="secondary-button replay-btn" type="button" aria-label="Replay spoken prompt">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                Replay
+              </button>
+            </div>
           </div>
-          <div class="prompt-bubble">
-            <p id="prompt-text" class="prompt-text"></p>
+
+          <!-- Stacked Prompts Container: Original question stays at top, Clarification appears in box below it -->
+          <div id="interaction-prompts-container" class="interaction-prompts-container">
+            <!-- Box 1: Original Follow-Up Question -->
+            <div id="original-question-box" class="prompt-card original-question-card" hidden>
+              <div class="prompt-card-header">
+                <span class="prompt-badge original-badge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="badge-icon">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                  <span id="original-question-label">FOLLOW-UP QUESTION</span>
+                </span>
+                <span id="original-question-field" class="prompt-field-tag"></span>
+              </div>
+              <p id="original-question-text" class="prompt-text original-text"></p>
+            </div>
+
+            <!-- Box 2: Clarification / Repeat Box (Rendered below original question, not replacing it) -->
+            <div id="clarification-box" class="prompt-card clarification-card" hidden>
+              <div class="prompt-card-header">
+                <span class="prompt-badge clarify-badge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="badge-icon">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span>CLARIFICATION REQUEST</span>
+                </span>
+                <span id="clarification-reason-tag" class="prompt-reason-tag"></span>
+              </div>
+              <p id="clarification-text" class="prompt-text clarify-text"></p>
+            </div>
+
+            <!-- Default bubble for readback / session prompts when not in dual question mode -->
+            <div id="default-prompt-bubble" class="prompt-bubble" hidden>
+              <p id="prompt-text" class="prompt-text"></p>
+            </div>
           </div>
+
           <audio id="prompt-audio" hidden></audio>
           <p id="interaction-help" class="interaction-help muted"></p>
         </div>

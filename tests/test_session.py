@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import io
+import wave
 from typing import Any
 
 import pytest
@@ -420,9 +422,65 @@ def test_session_api_start_get_and_manual_edit_routes() -> None:
         app.state.session_manager = original_manager
 
 
+def test_followup_question_preserves_original_and_stacks_clarification_box(
+    extracted_record: dict[str, Any],
+) -> None:
+    turn2 = dict(extracted_record, severe_headache="denied")
+    prisma = MockPrismaClient(
+        "Pregnant for fourteen weeks, blood pressure one twenty by eighty.",
+        "",  # empty speech triggers clarification
+        "sir dard nahi hai",  # subsequent clear answer
+    )
+    evon = MockEvonClient(extracted_record, turn2)
+    manager = build_manager(prisma, evon)
+    session = manager.create_session("hi-IN")
+
+    first = manager.process_turn1(session.session_id, b"turn one")
+    assert first.state == FOLLOWUP_ACTIVE
+    assert first.current_gap_field == "severe_headache"
+    original_q = first.original_question
+    assert original_q is not None
+    assert "सिरदर्द" in original_q
+    assert first.clarification_text is None
+    assert len(first.interaction_history) == 1
+    assert first.interaction_history[0]["type"] == "followup"
+
+    # Empty follow-up audio triggers clarification
+    clarified = manager.process_followup(session.session_id, b"empty audio")
+    assert clarified.state == FOLLOWUP_ACTIVE
+    # CRITICAL: Original question is PRESERVED, NOT REPLACED!
+    assert clarified.original_question == original_q
+    assert clarified.clarification_text is not None
+    assert len(clarified.interaction_history) == 2
+    assert clarified.interaction_history[0]["type"] == "followup"
+    assert clarified.interaction_history[0]["text"] == original_q
+    assert clarified.interaction_history[1]["type"] == "clarification"
+
+    # Worker can also explicitly request clarification on demand
+    manual_clarified = manager.request_clarification(session.session_id, "ASHA requested clarification")
+    assert manual_clarified.original_question == original_q
+    assert manual_clarified.clarification_text is not None
+
+    # Subsequent valid answer resolves the follow-up
+    resolved = manager.process_followup(session.session_id, b"clear follow-up answer")
+    assert resolved.state == READBACK_ACTIVE
+    assert resolved.record.severe_headache == "denied"
+
+
+def make_target_wav() -> bytes:
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(16000)
+        wav_file.writeframes(b"\x00\x00" * 160)
+    return buffer.getvalue()
+
+
 def test_session_audio_routes_run_complete_happy_path(
     extracted_record: dict[str, Any],
 ) -> None:
+    target_wav = make_target_wav()
     turn2 = dict(extracted_record, severe_headache="denied")
     confirmed = {
         "confirmed": True,
@@ -448,21 +506,21 @@ def test_session_audio_routes_run_complete_happy_path(
 
         first = client.post(
             f"/api/session/{session_id}/turn1",
-            files={"audio": ("turn1.wav", b"first", "audio/wav")},
+            files={"audio": ("turn1.wav", target_wav, "audio/wav")},
         )
         assert first.status_code == 200
         assert first.json()["state"] == FOLLOWUP_ACTIVE
 
         second = client.post(
             f"/api/session/{session_id}/followup",
-            files={"audio": ("followup.wav", b"second", "audio/wav")},
+            files={"audio": ("followup.wav", target_wav, "audio/wav")},
         )
         assert second.status_code == 200
         assert second.json()["state"] == READBACK_ACTIVE
 
         final = client.post(
             f"/api/session/{session_id}/readback",
-            files={"audio": ("readback.wav", b"third", "audio/wav")},
+            files={"audio": ("readback.wav", target_wav, "audio/wav")},
         )
         assert final.status_code == 200
         assert final.json()["state"] == FINAL_LOCKED

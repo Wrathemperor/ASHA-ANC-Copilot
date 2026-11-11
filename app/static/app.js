@@ -47,6 +47,9 @@ function cacheElements() {
     "audio-status", "recording-wave", "recording-timer", "microphone-error",
     "upload-audio-button", "audio-file-input", "demo-mode-banner",
     "interaction-card", "prompt-text", "prompt-audio", "replay-button",
+    "clarify-button", "interaction-prompts-container", "original-question-box",
+    "original-question-label", "original-question-field", "original-question-text",
+    "clarification-box", "clarification-reason-tag", "clarification-text", "default-prompt-bubble",
     "interaction-help", "visit-state", "weeks-input", "bp-sys-input", "bp-dia-input",
     "symptoms-matrix", "incomplete-warning", "gap-chips", "save-manual-button",
     "readback-card", "conflict-list", "readback-numbers", "confirm-button",
@@ -238,8 +241,57 @@ function renderSession(data) {
   renderGaps(data?.evaluation || null);
   elements["visit-state"].textContent = data ? data.state.replaceAll("_", " ") : "Waiting for visit";
   elements["save-manual-button"].disabled = !data || ["IDLE", "PROCESSING_TURN1"].includes(data.state);
-  elements["interaction-card"].hidden = !data?.prompt_text;
-  elements["prompt-text"].textContent = data?.prompt_text || "";
+  const hasPrompt = Boolean(data?.prompt_text || data?.original_question || data?.clarification_text);
+  elements["interaction-card"].hidden = !hasPrompt;
+
+  const originalQ = data?.original_question || (data?.state === "FOLLOWUP_ACTIVE" ? data?.prompt_text : null);
+  const clarifyText = data?.clarification_text;
+
+  if (originalQ) {
+    if (elements["original-question-box"]) elements["original-question-box"].hidden = false;
+    if (elements["original-question-text"]) elements["original-question-text"].textContent = originalQ;
+    const gapField = data?.current_gap_field || (data?.asked_gap_fields ? data.asked_gap_fields[data.asked_gap_fields.length - 1] : null);
+    if (gapField && FIELD_LABELS[gapField]) {
+      if (elements["original-question-field"]) {
+        elements["original-question-field"].textContent = FIELD_LABELS[gapField];
+        elements["original-question-field"].hidden = false;
+      }
+    } else if (elements["original-question-field"]) {
+      elements["original-question-field"].hidden = true;
+    }
+    if (elements["original-question-label"]) {
+      elements["original-question-label"].textContent = `FOLLOW-UP QUESTION ${data?.followup_turn_count ? "#" + (data.followup_turn_count + 1) : ""}`;
+    }
+
+    // Clarification box (Rendered below the original question box, never replacing it):
+    if (clarifyText && elements["clarification-box"]) {
+      elements["clarification-box"].hidden = false;
+      if (elements["clarification-text"]) elements["clarification-text"].textContent = clarifyText;
+      if (elements["clarification-reason-tag"]) {
+        elements["clarification-reason-tag"].textContent = data?.halt_reason || "Clarification needed";
+      }
+    } else if (elements["clarification-box"]) {
+      elements["clarification-box"].hidden = true;
+    }
+
+    if (elements["default-prompt-bubble"]) elements["default-prompt-bubble"].hidden = true;
+  } else if (data?.prompt_text) {
+    if (elements["original-question-box"]) elements["original-question-box"].hidden = true;
+    if (elements["clarification-box"]) elements["clarification-box"].hidden = true;
+    if (elements["default-prompt-bubble"]) {
+      elements["default-prompt-bubble"].hidden = false;
+      elements["prompt-text"].textContent = data.prompt_text;
+    }
+  } else {
+    if (elements["original-question-box"]) elements["original-question-box"].hidden = true;
+    if (elements["clarification-box"]) elements["clarification-box"].hidden = true;
+    if (elements["default-prompt-bubble"]) elements["default-prompt-bubble"].hidden = true;
+  }
+
+  if (elements["clarify-button"]) {
+    elements["clarify-button"].disabled = !data || data.state !== "FOLLOWUP_ACTIVE" || !originalQ;
+  }
+
   elements["interaction-help"].textContent = data?.halt_reason || "";
   elements["replay-button"].disabled = !data?.audio_playback_b64;
   elements["upload-audio-button"].disabled = !data
@@ -952,6 +1004,15 @@ function bindEvents() {
   });
   elements["replay-button"].addEventListener("click", () => {
     if (sessionData?.audio_playback_b64) playPrompt(sessionData.audio_playback_b64);
+  });
+  elements["clarify-button"]?.addEventListener("click", async () => {
+    if (!sessionId || sessionData?.state !== "FOLLOWUP_ACTIVE") return;
+    await withBusy(async () => {
+      const res = await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/clarify`, {
+        method: "POST",
+      });
+      updateSession(res);
+    });
   });
   elements["confirm-button"].addEventListener("click", submitManualEdits);
   elements["save-manual-button"].addEventListener("click", submitManualEdits);
