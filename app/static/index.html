@@ -14,7 +14,7 @@
   <script src="/app.js" defer></script>
 </head>
 <body class="desktop-workspace">
-  <!-- Porcelain Icon Rail -->
+  <!-- Minimal Porcelain Icon Rail -->
   <aside class="icon-rail" aria-label="Workspace navigation">
     <div class="rail-top">
       <div class="brand-mark" title="ASHA ANC Copilot">
@@ -40,25 +40,12 @@
             <line x1="9" y1="21" x2="9" y2="9"/>
           </svg>
         </a>
-        <button class="rail-item" type="button" title="Voice Recordings" aria-label="Audio Records">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="23" />
-            <line x1="8" y1="23" x2="16" y2="23" />
-          </svg>
-        </button>
-        <button class="rail-item" type="button" title="MoHFW Guidelines" aria-label="Guidelines">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-        </button>
       </nav>
     </div>
     <div class="rail-bottom">
-      <div class="model-status-pill" title="Active Model Backend">
+      <div class="model-status-pill" title="Gnani Speech AI Engine">
         <span class="model-dot" aria-hidden="true"></span>
-        <span class="model-name">GNANI.AI</span>
+        <span class="model-name">GNANI</span>
       </div>
     </div>
   </aside>
@@ -68,35 +55,32 @@
     <!-- Top Workspace App Bar -->
     <header class="workspace-topbar">
       <div class="topbar-left">
-        <div class="url-pill">
-          <span class="url-scheme">asha://</span><span class="url-path">anc.register/visit-session</span>
-        </div>
         <div class="title-group">
-          <h1 class="workspace-title">ASHA ANC Home-Visit Copilot</h1>
+          <h1 class="workspace-title">ASHA ANC Copilot</h1>
           <span class="status-indicator-pill">
             <span class="status-ping" aria-hidden="true"></span>
-            <span id="session-badge" class="session-badge" aria-live="polite">Starting session</span>
+            <span id="session-badge" class="session-badge" aria-live="polite">Ready</span>
           </span>
         </div>
       </div>
 
       <div class="topbar-center">
         <div class="patient-picker-field">
-          <label for="patient-select" class="meta-label">EXPECTANT MOTHER (RCH ID)</label>
+          <label for="patient-select" class="meta-label">EXPECTANT MOTHER</label>
           <div class="patient-picker-row">
             <div class="select-wrap patient-wrap">
               <select id="patient-select">
                 <option value="">Select registered mother...</option>
               </select>
             </div>
-            <button id="add-patient-btn" class="secondary-button mini-btn" type="button" title="Register New Mother">+ New</button>
+            <button id="add-patient-btn" class="secondary-button mini-btn" type="button" title="Register New Mother">+ New Mother</button>
           </div>
         </div>
       </div>
 
       <div class="topbar-right">
         <a href="/dashboard" class="secondary-button mini-btn supervisor-topbar-link" title="Open PHC & ANM Supervisor Dashboard">
-          📊 Supervisor Dashboard
+          Supervisor Dashboard &rarr;
         </a>
         <div id="network-pill" class="network-pill online" title="Connectivity">
           <span class="network-dot" aria-hidden="true"></span>
@@ -106,7 +90,7 @@
           Sync (<span id="queue-count">0</span>)
         </button>
         <div class="control-field">
-          <label for="language-select" class="meta-label">VISIT LANGUAGE</label>
+          <label for="language-select" class="meta-label">LANGUAGE</label>
           <div class="select-wrap">
             <select id="language-select">
               <option value="hi-IN">Hindi (हिन्दी)</option>
@@ -118,7 +102,7 @@
             </select>
           </div>
         </div>
-        <span id="api-counter" class="counter-chip">0 requests</span>
+        <span id="api-counter" hidden></span>
       </div>
     </header>
 

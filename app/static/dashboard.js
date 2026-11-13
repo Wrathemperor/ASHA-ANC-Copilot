@@ -313,7 +313,7 @@
           </div>
           ${hbChartSvg}
           <div class="chart-legend">
-            <span class="legend-item"><span class="legend-dot" style="background: #7c3aed;"></span> Hb g/dL</span>
+            <span class="legend-item"><span class="legend-dot" style="background: #0284c7;"></span> Hb g/dL</span>
             <span class="legend-item"><span class="legend-dot" style="background: #ef4444;"></span> Severe (&lt;7)</span>
             <span class="legend-item"><span class="legend-dot" style="background: #f59e0b;"></span> Moderate (&lt;10)</span>
           </div>
@@ -501,10 +501,10 @@
         <text x="${w - pad + 5}" y="${y7 + 4}" fill="#ef4444" font-size="9" font-family="sans-serif">7.0</text>
 
         <!-- Hb Polyline -->
-        ${hbPoints.length > 1 ? `<polyline fill="none" stroke="#7c3aed" stroke-width="2.5" points="${hbPoly}"/>` : ''}
+        ${hbPoints.length > 1 ? `<polyline fill="none" stroke="#0284c7" stroke-width="2.5" points="${hbPoly}"/>` : ''}
 
         <!-- Hb Dots -->
-        ${hbPoints.map((p) => `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#7c3aed"/><text x="${p.x}" y="${p.y - 7}" font-size="9" font-weight="bold" text-anchor="middle" fill="#581c87">${p.val}</text>`).join('')}
+        ${hbPoints.map((p) => `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#0284c7"/><text x="${p.x}" y="${p.y - 7}" font-size="9" font-weight="bold" text-anchor="middle" fill="#0369a1">${p.val}</text>`).join('')}
       </svg>
     `;
   }
