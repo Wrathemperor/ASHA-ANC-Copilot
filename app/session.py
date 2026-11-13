@@ -17,6 +17,7 @@ from app.extraction import (
 )
 from app.gnani.prisma import PrismaClient
 from app.gnani.timbre import TimbreClient
+from app.risk import compute_risk_score
 from app.rules import EvaluationResult, evaluate_visit
 from app.schema import ANCVisitRecord, merge_turn2_update
 
@@ -67,6 +68,10 @@ class SessionState:
     patient_id: str | None = None
     linked_patient: dict[str, Any] | None = None
     previous_visits: list[dict[str, Any]] = field(default_factory=list)
+    transcript_turn1: str | None = None
+    transcript_turn2: str | None = None
+    transcripts: list[dict[str, Any]] = field(default_factory=list)
+    risk_assessment: dict[str, Any] | None = None
 
 
 class SessionManager:
@@ -279,6 +284,15 @@ class SessionManager:
             raise ValueError("Prisma returned no transcript.")
         return transcript.strip()
 
+    def _update_risk(self, session: SessionState) -> None:
+        patient_age = session.linked_patient.get("age") if session.linked_patient else None
+        assessment = compute_risk_score(
+            session.record,
+            previous_visits=session.previous_visits,
+            patient_age=patient_age,
+        )
+        session.risk_assessment = asdict(assessment)
+
     def process_turn1(self, session_id: str, audio_bytes: bytes) -> SessionState:
         session = self.get_session(session_id)
         if session.state not in {IDLE, HALT_REPEAT}:
@@ -290,6 +304,14 @@ class SessionManager:
             return self._halt_repeat(session, f"Transcription failed: {error}")
         if len(transcript.split()) < 3:
             return self._halt_repeat(session, "Transcript was empty or shorter than three words.")
+
+        session.transcript_turn1 = transcript
+        session.transcripts.append({
+            "turn": 1,
+            "role": "asha_visit_note",
+            "prompt": None,
+            "transcript": transcript,
+        })
 
         try:
             session.record = extract_visit_record(
@@ -304,6 +326,7 @@ class SessionManager:
         session.evaluation = evaluate_visit(
             session.record, previous_visits=session.previous_visits
         )
+        self._update_risk(session)
         if session.evaluation.emergency_bypass:
             session.state = EMERGENCY_HALT
             session.halt_reason = "Emergency referral rule triggered."
@@ -323,6 +346,15 @@ class SessionManager:
             return self._halt_repeat(session, f"Follow-up transcription failed: {error}")
         if not transcript.split():
             return self._halt_repeat(session, "Follow-up transcript was empty.")
+
+        session.transcript_turn2 = transcript
+        session.transcripts.append({
+            "turn": session.followup_turn_count + 1,
+            "role": "followup_response",
+            "prompt": previous_question,
+            "transcript": transcript,
+        })
+
         try:
             turn2_record = extract_visit_record(
                 transcript,
@@ -340,6 +372,7 @@ class SessionManager:
         session.evaluation = evaluate_visit(
             session.record, previous_visits=session.previous_visits
         )
+        self._update_risk(session)
         if session.evaluation.emergency_bypass:
             session.state = EMERGENCY_HALT
             session.halt_reason = "Emergency referral rule triggered during follow-up."
@@ -436,6 +469,7 @@ class SessionManager:
         session.evaluation = evaluate_visit(
             session.record, previous_visits=session.previous_visits
         )
+        self._update_risk(session)
         session.state = FINAL_LOCKED
         session.halt_reason = None
         session.current_gap_field = None
@@ -473,10 +507,7 @@ class SessionManager:
         session.evaluation = evaluate_visit(
             session.record, previous_visits=session.previous_visits
         )
-        return session
-        session.halt_reason = None
-        session.current_gap_field = None
-        session.audio_playback_b64 = None
+        self._update_risk(session)
         return session
 
     @staticmethod

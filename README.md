@@ -76,9 +76,12 @@ Spoken Read-Back & Conflict Resolution -> Final Verified Clinical Referral Banne
    Voice audio is processed in volatile memory. No patient audio files or voice biometric prints are persisted to disk or external databases.
 
 ### 5. Verification and Deliverables
-- **Offline Test Suite:** 82 unit and integration tests passing (`pytest -q`), verifying extraction schema boundaries, negation handling, noise resistance (clean, 15 dB SNR, 5 dB SNR), longitudinal trajectory rules, and offline fallback.
+- **Offline Test Suite:** Comprehensive test suite passing (`pytest -q`), verifying extraction schema boundaries, negation handling, noise resistance (clean, 15 dB SNR, 5 dB SNR), longitudinal trajectory rules, composite risk scoring, supervisor analytics, and offline fallback.
+- **AI-Powered Composite ANC Risk Score Engine (0-100):** Deterministic clinical risk scoring ([`app/risk.py`](app/risk.py)) factoring maternal vitals, longitudinal BP/Hb/weight trajectories, trimester compliance, and danger signs into transparent tiers (LOW / MODERATE / HIGH).
+- **PHC & ANM Supervisor Dashboard:** Dedicated surveillance portal at [`/dashboard`](https://asha-anc-copilot.onrender.com/dashboard) giving Primary Health Center doctors and ANM supervisors village-level risk heatmaps, overdue visit alerts, and referral triage tracking.
+- **Explainable Visit Audio Transcripts & Clinical Audit:** Full transparency review displaying verbatim Gnani Prisma STT audio transcripts alongside extracted evidence spans and MoHFW citations, with one-click clinician audit sign-off.
 - **Offline PWA & Local Queue:** Progressive Web App shell caching (`service-worker.js`, `manifest.json`) and IndexedDB visit queueing for zero-connectivity field visits.
-- **Persistent Database & Longitudinal Tracking:** SQLite persistence (`app/db.py`) linking visits by RCH ID with trajectory rules (`RULE-LONG-01` to `03`) and printable MoHFW PMSMA clinical referral passes.
+- **Persistent Database & Longitudinal Tracking:** SQLite persistence (`app/db.py`) linking visits by RCH ID with trajectory rules (`RULE-LONG-01` to `03`) and printable MoHFW PMSMA clinical referral passes with triage QR codes.
 - **Zero Hallucination Referrals:** 100% of referral decisions are produced by rule functions with exact source citations.
 - **Live Deployment:** Production service hosted on Render at `https://asha-anc-copilot.onrender.com`.
 

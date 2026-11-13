@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fcfdfc">
+  <title>PHC &amp; ANM Supervisor Dashboard — ASHA ANC Copilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/dashboard.css">
+</head>
+<body class="dashboard-body">
+  <!-- Topbar Navigation -->
+  <header class="dash-topbar">
+    <div class="dash-brand">
+      <div class="dash-brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="dash-subtext">PRIMARY HEALTH CENTER (PHC) &amp; SUB-CENTER SURVEILLANCE</div>
+        <h1 class="dash-title">ANM Supervisor &amp; Medical Officer Dashboard</h1>
+      </div>
+    </div>
+    <div class="dash-top-actions">
+      <div class="live-status-pill">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span>SECTOR 4 — RAMPUR PHC</span>
+      </div>
+      <a href="/" class="primary-button return-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        ASHA Field Voice Register
+      </a>
+    </div>
+  </header>
+
+  <main class="dash-container">
+    <!-- Hero KPI Metric Cards -->
+    <section class="kpi-grid" aria-label="Key Clinical Metrics">
+      <div class="kpi-card" data-filter="ALL" id="kpi-all">
+        <div class="kpi-label">TOTAL REGISTERED MOTHERS</div>
+        <div class="kpi-val" id="metric-total-mothers">—</div>
+        <div class="kpi-sub">Across 3 Sub-Center Villages</div>
+      </div>
+      <div class="kpi-card kpi-danger" data-filter="HIGH" id="kpi-high">
+        <div class="kpi-header-row">
+          <div class="kpi-label">HIGH-RISK PREGNANCIES</div>
+          <span class="pulse-indicator"></span>
+        </div>
+        <div class="kpi-val text-red" id="metric-high-risk">—</div>
+        <div class="kpi-sub">Requires FRU / Doctor Review</div>
+      </div>
+      <div class="kpi-card kpi-warning" data-filter="OVERDUE" id="kpi-overdue">
+        <div class="kpi-label">OVERDUE ANC CHECKS</div>
+        <div class="kpi-val text-amber" id="metric-overdue">—</div>
+        <div class="kpi-sub">&gt;35 days without recorded visit</div>
+      </div>
+      <div class="kpi-card kpi-purple" data-filter="REFERRALS" id="kpi-referrals">
+        <div class="kpi-label">ACTIVE REFERRALS</div>
+        <div class="kpi-val text-purple" id="metric-pending-referrals">—</div>
+        <div class="kpi-sub">Pending Hospital Confirmation</div>
+      </div>
+    </section>
+
+    <!-- Village Level Overview Cards -->
+    <section class="village-section">
+      <div class="section-header">
+        <h2 class="section-title">Village / Sector Distribution</h2>
+        <span class="section-desc">Quick breakdown of high-risk cases and overdue visits by ASHA beat</span>
+      </div>
+      <div id="village-cards-grid" class="village-grid"></div>
+    </section>
+
+    <!-- Priority Triage Register -->
+    <section class="triage-section">
+      <div class="table-controls-bar">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="triage-search" placeholder="Search by mother's name, RCH ID, or village..." class="search-input">
+        </div>
+        <div class="filter-pills" role="tablist">
+          <button class="filter-pill active" data-filter="ALL" type="button">All Mothers</button>
+          <button class="filter-pill filter-danger" data-filter="HIGH" type="button">High Risk (Score ≥ 60)</button>
+          <button class="filter-pill filter-warning" data-filter="MODERATE" type="button">Moderate Risk (30-59)</button>
+          <button class="filter-pill filter-routine" data-filter="LOW" type="button">Routine (Low Risk)</button>
+        </div>
+      </div>
+
+      <!-- Main Register Table -->
+      <div class="table-wrapper">
+        <table class="triage-table">
+          <thead>
+            <tr>
+              <th>EXPECTANT MOTHER</th>
+              <th>VILLAGE</th>
+              <th>GESTATION</th>
+              <th>LATEST VITALS</th>
+              <th>RISK SCORE &amp; TIER</th>
+              <th>REFERRAL STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="triage-tbody">
+            <tr>
+              <td colspan="7" class="loading-cell">Loading antenatal clinical register...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Longitudinal Health & Audit Review Modal Drawer -->
+  <div id="patient-drawer-modal" class="modal-backdrop" hidden>
+    <div class="modal-card drawer-card" role="dialog" aria-labelledby="drawer-title">
+      <div class="modal-header drawer-header">
+        <div>
+          <span class="meta-label">LONGITUDINAL CLINICAL DOSSIER &amp; AUDIT TRAIL</span>
+          <h2 id="drawer-title" class="modal-title">Mother Profile</h2>
+        </div>
+        <button id="close-drawer-btn" class="close-icon-btn" type="button">&times;</button>
+      </div>
+
+      <div class="drawer-content" id="drawer-body">
+        <!-- Injected dynamically via dashboard.js -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/dashboard.js"></script>
+</body>
+</html>

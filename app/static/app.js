@@ -67,7 +67,18 @@ function cacheElements() {
     "slip-bp", "slip-weight", "slip-hb", "slip-danger-list", "slip-rule-list",
     "slip-qr-box", "slip-qr-payload", "slip-date",
     "processing-shimmer-container", "shimmer-row-1", "shimmer-row-2", "shimmer-row-3",
+    "banner-risk-container", "banner-risk-pill", "banner-risk-badge", "banner-sparkline-box",
+    "audit-trail-card", "audit-transcripts-container",
   ].forEach((id) => { elements[id] = document.getElementById(id); });
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function renderTextShimmerWave(targetElement, text, baseColor = "#64748b", shimmerColor = "#2563eb", duration = 1.4, spread = 1.0) {
@@ -314,6 +325,43 @@ function renderSession(data) {
     setInputValue(elements["hb-input"], data.record.hemoglobin);
     if (elements["save-to-db-btn"]) {
       elements["save-to-db-btn"].disabled = data.state !== "FINAL_LOCKED" || !data.patient_id;
+    }
+
+    // Render Risk Assessment pill
+    if (data.risk_assessment && elements["banner-risk-container"]) {
+      const r = data.risk_assessment;
+      elements["banner-risk-container"].hidden = false;
+      elements["banner-risk-pill"].textContent = `Risk Score: ${r.score}/100`;
+      elements["banner-risk-pill"].style.background = r.color || "#0f172a";
+      elements["banner-risk-badge"].textContent = `${r.tier} RISK`;
+      elements["banner-risk-badge"].style.color = r.color || "#0f172a";
+    }
+
+    // Render Audio Transcripts & Explainability Audit Card
+    if (elements["audit-trail-card"] && elements["audit-transcripts-container"]) {
+      const hasTranscripts = data.transcript_turn1 || (data.transcripts && data.transcripts.length);
+      if (hasTranscripts && data.state !== "IDLE") {
+        elements["audit-trail-card"].hidden = false;
+        const list = (data.transcripts && data.transcripts.length)
+          ? data.transcripts
+          : [
+              { turn: 1, role: "asha_visit_note", transcript: data.transcript_turn1 },
+              data.transcript_turn2 ? { turn: 2, role: "followup_response", transcript: data.transcript_turn2 } : null,
+            ].filter(Boolean);
+
+        elements["audit-transcripts-container"].innerHTML = list.map((t) => `
+          <div class="audit-transcript-item">
+            <div class="audit-transcript-meta">
+              <span>TURN ${t.turn}: ${t.role === "asha_visit_note" ? "INITIAL ASHA VOICE NOTE" : "FOLLOW-UP SPOKEN RESPONSE"}</span>
+              <span>PRISMA v3.0 STT</span>
+            </div>
+            <p class="audit-transcript-text">“${escapeHtml(t.transcript)}”</p>
+            ${t.prompt ? `<div class="audit-evidence-tag">In response to: “${escapeHtml(t.prompt)}”</div>` : ""}
+          </div>
+        `).join("");
+      } else {
+        elements["audit-trail-card"].hidden = true;
+      }
     }
   }
 }
@@ -881,6 +929,21 @@ async function onSelectPatient(rchId) {
       chip.append(title, vitals);
       timeline.append(chip);
     });
+
+    if (visits.length > 0) {
+      const latest = visits[visits.length - 1];
+      if (latest.risk_score !== null && latest.risk_score !== undefined && elements["banner-risk-container"]) {
+        elements["banner-risk-container"].hidden = false;
+        elements["banner-risk-pill"].textContent = `Risk Score: ${latest.risk_score}/100`;
+        const tier = latest.risk_tier || (latest.risk_score >= 60 ? "HIGH" : latest.risk_score >= 30 ? "MODERATE" : "LOW");
+        const color = tier === "HIGH" ? "#ef4444" : tier === "MODERATE" ? "#f59e0b" : "#10b981";
+        elements["banner-risk-pill"].style.background = color;
+        elements["banner-risk-badge"].textContent = `${tier} RISK`;
+        elements["banner-risk-badge"].style.color = color;
+      }
+    } else if (elements["banner-risk-container"]) {
+      elements["banner-risk-container"].hidden = true;
+    }
 
     // Link patient to active session if session exists
     if (sessionId) {

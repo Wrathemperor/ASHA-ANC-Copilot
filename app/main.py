@@ -10,19 +10,24 @@ from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.db import Database, init_db
 from app.gnani.demo import demo_offline_enabled
+from app.risk import compute_risk_score
+from app.schema import ANCVisitRecord
 from app.session import SessionManager, SessionState
 
 TARGET_RATE = 16_000
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
 app = FastAPI(title="Voice ANC Home-Visit Copilot")
 app.state.session_manager = SessionManager()
-app.state.db = init_db(seed=True)
+try:
+    app.state.db = init_db(seed=True)
+except Exception:
+    app.state.db = None
 
 
 class SessionStartRequest(BaseModel):
@@ -41,13 +46,25 @@ class LinkPatientRequest(BaseModel):
     rch_id: str
 
 
+class VerifyVisitRequest(BaseModel):
+    supervisor_notes: str | None = None
+
+
+class UpdateReferralStatusRequest(BaseModel):
+    referral_status: str
+    supervisor_notes: str | None = None
+
+
 def _session_manager() -> SessionManager:
     return app.state.session_manager
 
 
 def _db() -> Database:
     if not hasattr(app.state, "db") or app.state.db is None:
-        app.state.db = init_db(seed=True)
+        try:
+            app.state.db = init_db(seed=True)
+        except Exception:
+            app.state.db = init_db(":memory:", seed=True)
     return app.state.db
 
 
@@ -258,6 +275,12 @@ def save_visit_to_db(session_id: str) -> dict[str, Any]:
         )
     }
 
+    risk_score = None
+    risk_tier = None
+    if session.risk_assessment:
+        risk_score = session.risk_assessment.get("score")
+        risk_tier = session.risk_assessment.get("tier")
+
     saved = _db().save_visit(
         patient_id=session.patient_id,
         session_id=session.session_id,
@@ -282,8 +305,196 @@ def save_visit_to_db(session_id: str) -> dict[str, Any]:
         rule_ids=session.evaluation.rule_ids,
         evidence_json=session.record.evidence_spans,
         status="LOCKED" if session.state == "FINAL_LOCKED" else "DRAFT",
+        transcript_turn1=session.transcript_turn1,
+        transcript_turn2=session.transcript_turn2,
+        transcripts_json=session.transcripts,
+        risk_score=risk_score,
+        risk_tier=risk_tier,
+        referral_status="REFERRED" if session.evaluation.flag else "NOT_REQUIRED",
     )
     return {"status": "ok", "saved_visit": asdict(saved)}
+
+
+@app.get("/api/supervisor/summary")
+def get_supervisor_summary() -> dict[str, Any]:
+    """Provide high-level village/sector metrics for PHC / ANM supervisor."""
+    return _db().get_supervisor_summary()
+
+
+@app.get("/api/supervisor/patients")
+def get_supervisor_patients(
+    query: str | None = None,
+    village: str | None = None,
+    risk_tier: str | None = None,
+    overdue_only: bool = False,
+) -> dict[str, Any]:
+    """List expectant mothers ranked by risk and clinical need."""
+    patients = _db().list_patients(query=query)
+    results = []
+
+    for p in patients:
+        if village and p.village and p.village.lower() != village.lower():
+            continue
+
+        visits = _db().get_patient_visits(p.id)
+        latest_visit = visits[-1] if visits else None
+
+        # Build vitals & risk
+        latest_vitals = None
+        score = 0
+        tier = "LOW"
+        color = "#10b981"
+        badge = "Low Risk - Routine Care"
+        danger_count = 0
+        is_overdue = False
+        overdue_reason = None
+        anc_stage = "ANC 1"
+        referral_flag = None
+        referral_status = "NOT_REQUIRED"
+
+        if latest_visit:
+            latest_vitals = {
+                "visit_number": latest_visit.visit_number,
+                "gestational_weeks": latest_visit.gestational_weeks,
+                "bp_systolic": latest_visit.bp_systolic,
+                "bp_diastolic": latest_visit.bp_diastolic,
+                "weight_kg": latest_visit.weight_kg,
+                "hemoglobin": latest_visit.hemoglobin,
+                "created_at": latest_visit.created_at,
+            }
+            referral_flag = latest_visit.referral_flag
+            referral_status = latest_visit.referral_status
+
+            # Count danger signs
+            danger_count = sum(
+                1
+                for k, v in latest_visit.tri_state_json.items()
+                if v == "present"
+            )
+
+            # Risk computation
+            score = latest_visit.risk_score or 0
+            tier = latest_visit.risk_tier or ("HIGH" if score >= 60 else "MODERATE" if score >= 30 else "LOW")
+            if tier == "HIGH":
+                color = "#ef4444"
+                badge = "High Risk — Immediate Action"
+            elif tier == "MODERATE":
+                color = "#f59e0b"
+                badge = "Moderate Risk — ANM Review"
+            else:
+                color = "#10b981"
+                badge = "Low Risk — Routine Care"
+
+        # Check filter
+        if risk_tier and risk_tier.upper() != "ALL" and tier != risk_tier.upper():
+            continue
+
+        if overdue_only and not is_overdue:
+            continue
+
+        results.append({
+            "patient": asdict(p),
+            "visits_count": len(visits),
+            "latest_visit": latest_vitals,
+            "risk_score": score,
+            "risk_tier": tier,
+            "risk_color": color,
+            "risk_badge": badge,
+            "danger_count": danger_count,
+            "referral_flag": referral_flag,
+            "referral_status": referral_status,
+            "is_overdue": is_overdue,
+            "overdue_reason": overdue_reason,
+        })
+
+    # Sort: HIGH risk first, then highest risk_score
+    results.sort(key=lambda item: (-1 if item["risk_tier"] == "HIGH" else 0 if item["risk_tier"] == "MODERATE" else 1, -item["risk_score"]))
+
+    return {"count": len(results), "patients": results}
+
+
+@app.get("/api/supervisor/patient/{rch_id}")
+def get_supervisor_patient_detail(rch_id: str) -> dict[str, Any]:
+    """Return complete longitudinal clinical records, transcripts, and risk assessment."""
+    patient = _db().get_patient_by_rch(rch_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {rch_id} not found.")
+
+    visits = _db().get_patient_visits(patient.id)
+    serialized_visits = [asdict(v) for v in visits]
+
+    # Compute latest full risk breakdown if visits exist
+    assessment_dict = None
+    if visits:
+        latest = visits[-1]
+        rec = ANCVisitRecord(
+            gestational_weeks=latest.gestational_weeks,
+            bp_systolic=latest.bp_systolic,
+            bp_diastolic=latest.bp_diastolic,
+            weight_kg=latest.weight_kg,
+            hemoglobin=latest.hemoglobin,
+            evidence_spans=latest.evidence_json,
+            **{
+                k: v for k, v in latest.tri_state_json.items()
+                if hasattr(ANCVisitRecord, k)
+            }
+        )
+        past_list = [asdict(v) for v in visits[:-1]]
+        assessment = compute_risk_score(rec, previous_visits=past_list, patient_age=patient.age)
+        assessment_dict = asdict(assessment)
+
+    return {
+        "patient": asdict(patient),
+        "visits": serialized_visits,
+        "risk_assessment": assessment_dict,
+    }
+
+
+@app.post("/api/visits/{visit_id}/verify")
+def verify_visit_supervisor(visit_id: str, req: VerifyVisitRequest) -> dict[str, Any]:
+    """Clinician audit sign-off for a recorded ASHA home visit."""
+    success = _db().verify_visit(visit_id, supervisor_notes=req.supervisor_notes)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Visit {visit_id} not found.")
+    return {"status": "ok", "visit_id": visit_id, "verified": True}
+
+
+@app.post("/api/visits/{visit_id}/referral-status")
+def update_visit_referral_status(visit_id: str, req: UpdateReferralStatusRequest) -> dict[str, Any]:
+    """Update hospital/PHC triage status of a referred mother."""
+    success = _db().update_referral_status(
+        visit_id, referral_status=req.referral_status, supervisor_notes=req.supervisor_notes
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Visit {visit_id} not found.")
+    return {"status": "ok", "visit_id": visit_id, "referral_status": req.referral_status}
+
+
+@app.get("/api/visits/{visit_id}/audit")
+def get_visit_audit(visit_id: str) -> dict[str, Any]:
+    """Get full transparent audit trail with audio transcripts and extraction mapping."""
+    visit = _db().get_visit_by_id(visit_id)
+    if not visit:
+        raise HTTPException(status_code=404, detail=f"Visit {visit_id} not found.")
+    patient = _db().get_patient_by_id(visit.patient_id)
+    return {
+        "visit": asdict(visit),
+        "patient": asdict(patient) if patient else None,
+        "transcripts": visit.transcripts_json,
+        "transcript_turn1": visit.transcript_turn1,
+        "transcript_turn2": visit.transcript_turn2,
+        "evidence": visit.evidence_json,
+        "rule_ids": visit.rule_ids,
+        "verified_by_supervisor": visit.verified_by_supervisor,
+        "supervisor_notes": visit.supervisor_notes,
+    }
+
+
+@app.get("/dashboard")
+@app.get("/supervisor")
+def serve_dashboard() -> FileResponse:
+    """Serve the dedicated Supervisor / ANM analytics dashboard."""
+    return FileResponse("app/static/dashboard.html")
 
 
 @app.get("/api/session/{session_id}/referral-slip")

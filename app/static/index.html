@@ -33,6 +33,13 @@
           </svg>
           <span class="active-dot" aria-hidden="true"></span>
         </button>
+        <a class="rail-item" href="/dashboard" title="PHC / ANM Supervisor Dashboard" aria-label="Supervisor Dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="9" y1="21" x2="9" y2="9"/>
+          </svg>
+        </a>
         <button class="rail-item" type="button" title="Voice Recordings" aria-label="Audio Records">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -88,6 +95,9 @@
       </div>
 
       <div class="topbar-right">
+        <a href="/dashboard" class="secondary-button mini-btn supervisor-topbar-link" title="Open PHC & ANM Supervisor Dashboard">
+          📊 Supervisor Dashboard
+        </a>
         <div id="network-pill" class="network-pill online" title="Connectivity">
           <span class="network-dot" aria-hidden="true"></span>
           <span id="network-text">Online</span>
@@ -278,8 +288,13 @@
                 <span class="patient-rch" id="banner-patient-rch">RCH: —</span>
               </div>
               <span class="patient-meta" id="banner-patient-meta">Age: — | Village: — | EDD: —</span>
+              <div id="banner-risk-container" class="banner-risk-container" hidden>
+                <span id="banner-risk-pill" class="risk-pill-chip">Risk Score: —</span>
+                <span id="banner-risk-badge" class="risk-badge-text">—</span>
+              </div>
             </div>
             <div class="longitudinal-timeline" id="patient-timeline"></div>
+            <div id="banner-sparkline-box" class="banner-sparkline-box" hidden></div>
           </div>
 
           <!-- Vitals Grid -->
@@ -378,6 +393,19 @@
             <button id="save-to-db-btn" class="primary-button save-db-btn" type="button">Save to Mother's Record</button>
             <button id="new-visit-button" class="secondary-button new-visit-btn" type="button">Start New Visit / Reset</button>
           </div>
+        </div>
+
+        <!-- Spoken Audio Transcript & Clinical Explainability Audit Card -->
+        <div id="audit-trail-card" class="card audit-card" aria-live="polite" hidden>
+          <div class="card-header">
+            <div>
+              <p class="meta-label">EXPLAINABILITY &amp; CLINICAL AUDIT</p>
+              <h2 class="card-title">Spoken Voice Transcripts &amp; PMSMA Evidence</h2>
+            </div>
+            <span class="state-chip" style="background: #f0fdfa; color: #0d9488; border-color: #ccfbf1;">GNANI PRISMA v3.0</span>
+          </div>
+          <p class="audit-intro muted" style="font-size: 0.78rem; margin: 0.5rem 0 0.8rem 0;">Exact spoken audio transcripts processed by Gnani Prisma mapped directly to MoHFW guidelines with zero hallucination.</p>
+          <div id="audit-transcripts-container" class="audit-transcripts-container"></div>
         </div>
       </section>
     </div>

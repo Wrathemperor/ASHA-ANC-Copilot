@@ -1817,3 +1817,105 @@ button, select {
     overflow-y: visible;
   }
 }
+
+/* Supervisor Topbar Button */
+.supervisor-topbar-link {
+  text-decoration: none;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  color: #0f766e;
+  transition: all 0.15s ease;
+}
+
+.supervisor-topbar-link:hover {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+/* Banner Risk Score Container */
+.banner-risk-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.risk-pill-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.risk-badge-text {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.banner-sparkline-box {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: #ffffff;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+}
+
+/* Spoken Audio Transcripts & Explainability Card */
+.audit-card {
+  border-left: 3px solid #0d9488 !important;
+}
+
+.audit-transcripts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.audit-transcript-item {
+  background: #f8fafc;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+}
+
+.audit-transcript-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+}
+
+.audit-transcript-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+  font-style: italic;
+}
+
+.audit-evidence-tag {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
