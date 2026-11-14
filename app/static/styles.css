@@ -1920,3 +1920,364 @@ button, select {
   padding: 2px 6px;
   border-radius: 4px;
 }
+
+/* ==========================================================================
+   Combo C: Low-Literacy Spoken Summary Playback
+   ========================================================================== */
+.voice-summary-container {
+  margin: 1.25rem 0;
+  padding: 1.1rem 1.25rem;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+
+.summary-audio-header {
+  margin-bottom: 0.25rem;
+}
+
+.summary-audio-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+  margin: 0.2rem 0;
+}
+
+.summary-audio-desc {
+  font-size: 0.8rem;
+  color: #475569;
+  margin: 0 0 0.85rem 0;
+  line-height: 1.45;
+}
+
+.summary-audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.summary-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.summary-play-btn:hover {
+  background: var(--accent-deep);
+}
+
+.summary-play-btn:active {
+  transform: scale(0.98);
+}
+
+.summary-play-btn.playing {
+  background: #0f172a;
+}
+
+.summary-lang-chip {
+  background: #ffffff;
+  border: 1px solid #99f6e4;
+  color: var(--accent-deep);
+  font-size: 0.72rem;
+}
+
+.summary-transcript-text {
+  margin-top: 0.85rem;
+  padding: 0.75rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #1e293b;
+  font-style: italic;
+}
+
+/* ==========================================================================
+   Combo C: WhatsApp Bot Interactive Simulator Modal
+   ========================================================================== */
+.wa-simulator-card {
+  max-width: 480px;
+  width: 95vw;
+  padding: 0;
+  background: #efeae2;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+
+.wa-header {
+  background: #075e54;
+  color: #ffffff;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wa-contact-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.wa-avatar {
+  width: 38px;
+  height: 38px;
+  background: #128c7e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.wa-name {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.wa-verified {
+  color: #25d366;
+  font-size: 0.9rem;
+}
+
+.wa-status {
+  font-size: 0.7rem;
+  opacity: 0.85;
+}
+
+.wa-close {
+  color: #ffffff;
+  font-size: 1.4rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+.wa-quick-actions {
+  background: #f8fafc;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.wa-quick-label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.wa-chip {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wa-chip:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.wa-chat-body {
+  padding: 1rem;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 280px;
+  background: #efeae2 url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20.5V18H0v-2h20v-2H0v-2h20v-2H0V8h20V6H0V4h20V2H0V0h22v20h2V0h2v20h2V0h2v20h2V0h2v20h2v2H20v-1.5z' fill='%23000000' fill-opacity='0.02' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+.wa-bubble {
+  max-width: 82%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  position: relative;
+  word-break: break-word;
+}
+
+.wa-bubble-incoming {
+  align-self: flex-start;
+  background: #ffffff;
+  color: #111827;
+  border-top-left-radius: 2px;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+}
+
+.wa-bubble-outgoing {
+  align-self: flex-end;
+  background: #dcf8c6;
+  color: #111827;
+  border-top-right-radius: 2px;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+}
+
+.wa-bubble p {
+  margin: 0 0 0.35rem 0;
+}
+
+.wa-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.wa-time {
+  display: block;
+  font-size: 0.65rem;
+  color: #64748b;
+  text-align: right;
+  margin-top: 0.25rem;
+}
+
+.wa-input-bar {
+  background: #f0f0f0;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wa-text-input {
+  flex: 1;
+  padding: 0.65rem 0.9rem;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.wa-text-input:focus {
+  border-color: #075e54;
+}
+
+.wa-send-btn {
+  width: 40px;
+  height: 40px;
+  background: #075e54;
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.wa-send-btn:active {
+  transform: scale(0.95);
+}
+
+/* ==========================================================================
+   Combo C: ASHA Worker Interactive Onboarding Tutorial Modal
+   ========================================================================== */
+.tutorial-card {
+  max-width: 560px;
+  width: 90vw;
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.tutorial-step-container {
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.tutorial-step-hero {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.tutorial-step-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 0.5rem 0;
+}
+
+.tutorial-step-desc {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0 0 1rem 0;
+}
+
+.tutorial-step-highlight {
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.tutorial-pagination {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tutorial-dots {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.tutorial-dots .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  transition: all 0.2s ease;
+}
+
+.tutorial-dots .dot.active {
+  width: 20px;
+  border-radius: 10px;
+  background: var(--accent);
+}
+
+.tutorial-actions {
+  display: flex;
+  gap: 0.5rem;
+}

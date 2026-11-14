@@ -69,6 +69,9 @@ function cacheElements() {
     "processing-shimmer-container", "shimmer-row-1", "shimmer-row-2", "shimmer-row-3",
     "banner-risk-container", "banner-risk-pill", "banner-risk-badge", "banner-sparkline-box",
     "audit-trail-card", "audit-transcripts-container",
+    "whatsapp-modal-btn", "whatsapp-modal", "close-wa-modal", "wa-chat-body", "wa-chat-form", "wa-input", "wa-send-btn",
+    "tutorial-btn", "tutorial-modal", "close-tutorial-modal", "tutorial-step-container", "tutorial-dots", "tutorial-prev-btn", "tutorial-next-btn",
+    "voice-summary-container", "play-summary-btn", "play-summary-text", "play-icon", "summary-lang-badge", "summary-transcript-text", "summary-audio-element",
   ].forEach((id) => { elements[id] = document.getElementById(id); });
 }
 
@@ -486,6 +489,26 @@ function renderReferral(data) {
   if (remaining.length) {
     warning.append(safeText("h3", "", "Incomplete / Needs Verification"));
     warning.append(safeText("p", "", remaining.map((field) => FIELD_LABELS[field] || field).join(", ")));
+  }
+
+  // Update Spoken Summary Language Badge & Reset Audio State
+  currentSummaryAudioB64 = null;
+  if (elements["summary-lang-badge"]) {
+    const langNames = {
+      "hi-IN": "Hindi",
+      "mr-IN": "Marathi",
+      "te-IN": "Telugu",
+      "ta-IN": "Tamil",
+      "ml-IN": "Malayalam",
+      "en-IN": "English",
+    };
+    elements["summary-lang-badge"].textContent = langNames[elements["language-select"]?.value] || "Hindi";
+  }
+  if (elements["summary-transcript-text"]) elements["summary-transcript-text"].hidden = true;
+  if (elements["play-summary-btn"]) {
+    elements["play-summary-btn"].classList.remove("playing");
+    if (elements["play-summary-text"]) elements["play-summary-text"].textContent = "Play Spoken Summary";
+    if (elements["play-icon"]) elements["play-icon"].textContent = "▶";
   }
 }
 
@@ -1131,6 +1154,250 @@ function bindEvents() {
   // Network Event Listeners
   window.addEventListener("online", updateNetworkStatus);
   window.addEventListener("offline", updateNetworkStatus);
+
+  // Combo C: Spoken Summary, WhatsApp Simulator & Tutorial Events
+  elements["play-summary-btn"]?.addEventListener("click", playSpokenSummary);
+  initWhatsAppSimulator();
+  initOnboardingTutorial();
+}
+
+let currentSummaryAudioB64 = null;
+
+async function playSpokenSummary() {
+  const audioEl = elements["summary-audio-element"];
+  const btn = elements["play-summary-btn"];
+  const btnText = elements["play-summary-text"];
+  const icon = elements["play-icon"];
+  const transcriptEl = elements["summary-transcript-text"];
+
+  if (!audioEl || !sessionId) return;
+
+  if (!audioEl.paused && !audioEl.ended) {
+    audioEl.pause();
+    btn.classList.remove("playing");
+    if (btnText) btnText.textContent = "Play Spoken Summary";
+    if (icon) icon.textContent = "▶";
+    return;
+  }
+
+  if (currentSummaryAudioB64 && audioEl.src) {
+    audioEl.play().catch(() => {});
+    btn.classList.add("playing");
+    if (btnText) btnText.textContent = "Pause Summary";
+    if (icon) icon.textContent = "⏸";
+    return;
+  }
+
+  btn.disabled = true;
+  if (btnText) btnText.textContent = "Synthesizing...";
+
+  try {
+    const lang = elements["language-select"]?.value || "hi-IN";
+    const data = await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/audio-summary?language=${encodeURIComponent(lang)}`);
+    if (data.text && transcriptEl) {
+      transcriptEl.textContent = `“${data.text}”`;
+      transcriptEl.hidden = false;
+    }
+    if (data.audio_playback_b64) {
+      currentSummaryAudioB64 = data.audio_playback_b64;
+      audioEl.src = `data:audio/wav;base64,${data.audio_playback_b64}`;
+      audioEl.onended = () => {
+        btn.classList.remove("playing");
+        if (btnText) btnText.textContent = "Replay Spoken Summary";
+        if (icon) icon.textContent = "▶";
+      };
+      await audioEl.play();
+      btn.classList.add("playing");
+      if (btnText) btnText.textContent = "Pause Summary";
+      if (icon) icon.textContent = "⏸";
+    } else {
+      if (btnText) btnText.textContent = "Audio Unavailable";
+    }
+  } catch (err) {
+    if (btnText) btnText.textContent = "Error loading audio";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function initWhatsAppSimulator() {
+  const modal = elements["whatsapp-modal"];
+  const openBtn = elements["whatsapp-modal-btn"];
+  const closeBtn = elements["close-wa-modal"];
+  const form = elements["wa-chat-form"];
+  const input = elements["wa-input"];
+  const chatBody = elements["wa-chat-body"];
+
+  if (!modal || !openBtn) return;
+
+  openBtn.addEventListener("click", () => {
+    modal.hidden = false;
+    input?.focus();
+  });
+
+  closeBtn?.addEventListener("click", () => {
+    modal.hidden = true;
+  });
+
+  document.querySelectorAll(".wa-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      if (!input) return;
+      input.value = chip.getAttribute("data-text");
+      input.focus();
+    });
+  });
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const userBubble = document.createElement("div");
+    userBubble.className = "wa-bubble wa-bubble-outgoing";
+    userBubble.innerHTML = `<p>${escapeHtml(text)}</p><span class="wa-time">${timeStr}</span>`;
+    chatBody.appendChild(userBubble);
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    const typingBubble = document.createElement("div");
+    typingBubble.className = "wa-bubble wa-bubble-incoming";
+    typingBubble.innerHTML = `<p><em>Analyzing with Gnani Indic AI…</em></p>`;
+    chatBody.appendChild(typingBubble);
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    try {
+      const lang = elements["language-select"]?.value || "hi-IN";
+      const res = await apiRequest("/api/whatsapp/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sender: "+919876543210",
+          message: text,
+          language: lang,
+        }),
+      });
+
+      let formatted = escapeHtml(res.reply_text || "")
+        .replace(/\*(.*?)\*/g, "<strong>$1</strong>")
+        .replace(/_(.*?)_/g, "<em>$1</em>")
+        .replace(/`(.*?)`/g, "<code>$1</code>")
+        .replace(/\n/g, "<br>");
+
+      typingBubble.innerHTML = `<div>${formatted}</div><span class="wa-time">${timeStr}</span>`;
+      chatBody.scrollTop = chatBody.scrollHeight;
+    } catch (err) {
+      typingBubble.innerHTML = `<p style="color:#b91c1c;">⚠️ Error sending message: ${escapeHtml(err.message)}</p>`;
+    }
+  });
+}
+
+const TUTORIAL_STEPS = [
+  {
+    hero: "👶",
+    title: "1. Select Expectant Mother",
+    desc: "Start each home visit by choosing the mother from the RCH registry or clicking '+ New Mother'. Pick her spoken Indic language (Hindi, Marathi, Telugu, Tamil, Malayalam, or English).",
+    highlight: "Supports 12-digit RCH IDs and tracks longitudinal visit history across all trimesters.",
+  },
+  {
+    hero: "🎙️",
+    title: "2. Natural Indic Speech Capture",
+    desc: "Press and hold the microphone button to dictate clinical visit notes naturally in the mother's local language. Speak freely without worrying about pre-filling forms.",
+    highlight: "Powered by Gnani Prisma v3.0 Indic Speech AI with noise-robust acoustic models.",
+  },
+  {
+    hero: "🩺",
+    title: "3. Zero-Hallucination Tri-State Safety",
+    desc: "Vitals (BP, gestational weeks, weight, Hb) and 12 danger signs are extracted in real-time. Unmentioned symptoms remain 'Unknown'—silence is never assumed as denial.",
+    highlight: "Aligned with MoHFW PMSMA & WHO Antenatal Care safety guidelines.",
+  },
+  {
+    hero: "❓",
+    title: "4. Smart Clarifications & Follow-Up",
+    desc: "If a critical safety gap exists (such as headache without vision check), Copilot asks a targeted spoken question. Tap 'Clarify' if the mother needs the question simplified.",
+    highlight: "Two-turn conversational bounds protect field workers from confusing AI drift.",
+  },
+  {
+    hero: "📋",
+    title: "5. PMSMA Referral Slip & Voice Summary",
+    desc: "MoHFW rules evaluate referral urgency. Generate an official referral slip with QR code for hospital triage, and play a 15-second spoken summary to the mother's family.",
+    highlight: "Low-literacy voice playback bridges the gap between ASHA workers and rural families.",
+  },
+];
+
+let currentTutorialStep = 0;
+
+function renderTutorialStep(stepIndex) {
+  const container = elements["tutorial-step-container"];
+  const dotsContainer = elements["tutorial-dots"];
+  const prevBtn = elements["tutorial-prev-btn"];
+  const nextBtn = elements["tutorial-next-btn"];
+
+  if (!container || !TUTORIAL_STEPS[stepIndex]) return;
+
+  const step = TUTORIAL_STEPS[stepIndex];
+  container.innerHTML = `
+    <div class="tutorial-step-hero">${step.hero}</div>
+    <h4 class="tutorial-step-title">${escapeHtml(step.title)}</h4>
+    <p class="tutorial-step-desc">${escapeHtml(step.desc)}</p>
+    <div class="tutorial-step-highlight">${escapeHtml(step.highlight)}</div>
+  `;
+
+  if (dotsContainer) {
+    dotsContainer.innerHTML = TUTORIAL_STEPS.map((_, i) =>
+      `<span class="dot ${i === stepIndex ? "active" : ""}"></span>`
+    ).join("");
+  }
+
+  if (prevBtn) prevBtn.disabled = stepIndex === 0;
+  if (nextBtn) {
+    nextBtn.textContent = stepIndex === TUTORIAL_STEPS.length - 1 ? "Finish ✓" : "Next →";
+  }
+}
+
+function initOnboardingTutorial() {
+  const modal = elements["tutorial-modal"];
+  const openBtn = elements["tutorial-btn"];
+  const closeBtn = elements["close-tutorial-modal"];
+  const prevBtn = elements["tutorial-prev-btn"];
+  const nextBtn = elements["tutorial-next-btn"];
+
+  if (!modal || !openBtn) return;
+
+  openBtn.addEventListener("click", () => {
+    currentTutorialStep = 0;
+    renderTutorialStep(0);
+    modal.hidden = false;
+  });
+
+  closeBtn?.addEventListener("click", () => {
+    modal.hidden = true;
+  });
+
+  prevBtn?.addEventListener("click", () => {
+    if (currentTutorialStep > 0) {
+      currentTutorialStep--;
+      renderTutorialStep(currentTutorialStep);
+    }
+  });
+
+  nextBtn?.addEventListener("click", () => {
+    if (currentTutorialStep < TUTORIAL_STEPS.length - 1) {
+      currentTutorialStep++;
+      renderTutorialStep(currentTutorialStep);
+    } else {
+      modal.hidden = true;
+      try { localStorage.setItem("asha_tutorial_seen", "true"); } catch (e) {}
+    }
+  });
+
+  try {
+    if (!localStorage.getItem("asha_tutorial_seen")) {
+      currentTutorialStep = 0;
+      renderTutorialStep(0);
+      modal.hidden = false;
+    }
+  } catch (e) {}
 }
 
 document.addEventListener("DOMContentLoaded", () => {

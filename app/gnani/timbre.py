@@ -103,6 +103,9 @@ class TimbreClient:
             audio = bounded_call(lambda: self.client.synthesize(text=text, voice=voice, model=model, language=language, speed=1.0), "timbre", self.usage)
         if not isinstance(audio, bytes):
             raise TypeError("Timbre synthesize must return bytes.")
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        cache_path.write_bytes(audio)
+        try:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_path.write_bytes(audio)
+        except OSError:
+            pass
         return audio

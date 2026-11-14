@@ -79,6 +79,12 @@
       </div>
 
       <div class="topbar-right">
+        <button id="whatsapp-modal-btn" class="secondary-button mini-btn wa-topbar-btn" type="button" title="Test Live WhatsApp Bot">
+          💬 WhatsApp Bot
+        </button>
+        <button id="tutorial-btn" class="secondary-button mini-btn tutorial-topbar-btn" type="button" title="Interactive ASHA Walkthrough">
+          ? Tutorial
+        </button>
         <a href="/dashboard" class="secondary-button mini-btn supervisor-topbar-link" title="Open PHC & ANM Supervisor Dashboard">
           Supervisor Dashboard &rarr;
         </a>
@@ -372,6 +378,25 @@
           <p id="referral-details" class="referral-details"></p>
           <div id="rule-details" class="rule-details"></div>
           <div id="final-incomplete" class="incomplete-warning" hidden></div>
+
+          <!-- Spoken Audio Summary for Low-Literacy Mother and Family -->
+          <div id="voice-summary-container" class="voice-summary-container">
+            <div class="summary-audio-header">
+              <span class="meta-label">LOW-LITERACY ACCESSIBILITY</span>
+              <h4 class="summary-audio-title">Spoken Visit Summary for Family</h4>
+            </div>
+            <p class="summary-audio-desc">Plays a clear, localized audio explanation in the chosen language that the ASHA worker can play to the mother and her family.</p>
+            <div class="summary-audio-controls">
+              <button id="play-summary-btn" class="summary-play-btn" type="button">
+                <span class="play-icon" id="play-icon" aria-hidden="true">▶</span>
+                <span id="play-summary-text">Play Spoken Summary</span>
+              </button>
+              <span id="summary-lang-badge" class="state-chip summary-lang-chip">Hindi</span>
+            </div>
+            <div id="summary-transcript-text" class="summary-transcript-text" hidden></div>
+            <audio id="summary-audio-element" hidden></audio>
+          </div>
+
           <div class="referral-actions">
             <button id="view-referral-slip-btn" class="secondary-button slip-btn" type="button">📄 View &amp; Print Referral Slip</button>
             <button id="save-to-db-btn" class="primary-button save-db-btn" type="button">Save to Mother's Record</button>
@@ -514,6 +539,79 @@
           <div class="slip-sign-block">
             <p class="sign-line">ASHA Worker Signature / Stamp</p>
             <p class="sign-date" id="slip-date">Date: —</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WhatsApp Bot Interactive Simulator Modal -->
+  <div id="whatsapp-modal" class="modal-backdrop" hidden>
+    <div class="modal-card wa-simulator-card" role="dialog" aria-labelledby="wa-modal-title">
+      <div class="wa-header">
+        <div class="wa-contact-info">
+          <div class="wa-avatar">🩺</div>
+          <div>
+            <h3 id="wa-modal-title" class="wa-name">ASHA ANC Copilot <span class="wa-verified">✓</span></h3>
+            <span class="wa-status">Official MoHFW Healthcare Assistant • Online</span>
+          </div>
+        </div>
+        <button id="close-wa-modal" class="close-icon-btn wa-close" type="button" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div class="wa-quick-actions">
+        <span class="wa-quick-label">QUICK TEST PROMPTS:</span>
+        <button class="wa-chip" type="button" data-text="Sunita Devi, 28 weeks, BP 140/95, severe headache present">🚨 High Risk Case</button>
+        <button class="wa-chip" type="button" data-text="Anjali Patel, 32 weeks, BP 118/76, normal movement, feeling well">✅ Normal ANC</button>
+        <button class="wa-chip" type="button" data-text="New">🔄 Reset Session</button>
+      </div>
+
+      <div id="wa-chat-body" class="wa-chat-body">
+        <div class="wa-bubble wa-bubble-incoming">
+          <p>👋 <strong>Namaste ASHA Didi!</strong></p>
+          <p>Send a message or voice note to record an ANC home visit. I will extract vitals, check danger signs, and generate a referral slip instantly.</p>
+          <span class="wa-time">10:00 AM</span>
+        </div>
+      </div>
+
+      <form id="wa-chat-form" class="wa-input-bar">
+        <input id="wa-input" type="text" placeholder="Type visit notes or patient name..." class="wa-text-input" autocomplete="off" required>
+        <button id="wa-send-btn" type="submit" class="wa-send-btn" title="Send message">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+          </svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ASHA Worker Interactive Onboarding Tutorial Modal -->
+  <div id="tutorial-modal" class="modal-backdrop" hidden>
+    <div class="modal-card tutorial-card" role="dialog" aria-labelledby="tutorial-title">
+      <div class="modal-header">
+        <div>
+          <span class="meta-label">GUIDED TOUR</span>
+          <h3 id="tutorial-title" class="modal-title">Welcome to ASHA ANC Copilot</h3>
+        </div>
+        <button id="close-tutorial-modal" class="close-icon-btn" type="button" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div class="tutorial-content">
+        <div id="tutorial-step-container" class="tutorial-step-container">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <div class="tutorial-pagination">
+          <div class="tutorial-dots" id="tutorial-dots">
+            <span class="dot active"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+          <div class="tutorial-actions">
+            <button id="tutorial-prev-btn" class="secondary-button mini-btn" type="button">Back</button>
+            <button id="tutorial-next-btn" class="primary-button mini-btn" type="button">Next &rarr;</button>
           </div>
         </div>
       </div>

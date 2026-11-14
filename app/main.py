@@ -8,17 +8,19 @@ import wave
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from app.audio_summary import generate_visit_audio_summary, build_spoken_summary_text
 from app.db import Database, init_db
 from app.gnani.demo import demo_offline_enabled
 from app.risk import compute_risk_score
 from app.schema import ANCVisitRecord
 from app.session import SessionManager, SessionState
+from app.whatsapp import handle_whatsapp_message, to_twiml_response, _WHATSAPP_AUDIT_LOG
 
 TARGET_RATE = 16_000
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
@@ -532,6 +534,79 @@ def get_referral_slip(session_id: str) -> dict[str, Any]:
         "evidence_spans": session.record.evidence_spans,
         "qr_code_data": qr_payload,
     }
+
+
+class WhatsAppSimulateRequest(BaseModel):
+    sender: str = "+919876543210"
+    message: str | None = None
+    language: str = "hi-IN"
+    audio_b64: str | None = None
+
+
+@app.post("/api/whatsapp/simulate")
+def simulate_whatsapp(req: WhatsAppSimulateRequest) -> dict[str, Any]:
+    """Test endpoint for judges/developers to simulate WhatsApp bot messages."""
+    audio_bytes = None
+    if req.audio_b64:
+        try:
+            import base64
+            audio_bytes = base64.b64decode(req.audio_b64)
+        except Exception:
+            pass
+    return handle_whatsapp_message(
+        sender=req.sender,
+        body=req.message,
+        audio_bytes=audio_bytes,
+        session_manager=_session_manager(),
+        db=_db(),
+        language=req.language,
+    )
+
+
+@app.post("/api/whatsapp/webhook")
+async def whatsapp_webhook(request: Request) -> Response:
+    """Twilio WhatsApp Business API Webhook handler."""
+    content_type = request.headers.get("content-type", "")
+    body_text = None
+    sender = "+919876543210"
+    media_url = None
+
+    if "application/json" in content_type:
+        data = await request.json()
+        sender = data.get("From") or data.get("sender") or sender
+        body_text = data.get("Body") or data.get("message")
+        media_url = data.get("MediaUrl0") or data.get("media_url")
+    else:
+        form = await request.form()
+        sender = form.get("From") or sender
+        body_text = form.get("Body")
+        media_url = form.get("MediaUrl0")
+
+    result = handle_whatsapp_message(
+        sender=str(sender),
+        body=str(body_text) if body_text else None,
+        media_url=str(media_url) if media_url else None,
+        session_manager=_session_manager(),
+        db=_db(),
+    )
+
+    twiml = to_twiml_response(result["reply_text"])
+    return Response(content=twiml, media_type="application/xml")
+
+
+@app.get("/api/whatsapp/conversations")
+def get_whatsapp_audit_log() -> list[dict[str, Any]]:
+    """Supervisor view of recent WhatsApp bot conversations."""
+    return _WHATSAPP_AUDIT_LOG[-50:]
+
+
+@app.post("/api/session/{session_id}/audio-summary")
+@app.get("/api/session/{session_id}/audio-summary")
+def get_session_audio_summary(session_id: str, language: str | None = None) -> dict[str, Any]:
+    """Generate or retrieve a spoken Indic audio summary for low-literacy ASHA workers and families."""
+    manager = _session_manager()
+    session = _get_session_or_404(manager, session_id)
+    return generate_visit_audio_summary(session, target_language=language)
 
 
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")

@@ -39,20 +39,23 @@ class UsageCounter:
 
     def record(self, service: str) -> None:
         self.calls[service] = self.calls.get(service, 0) + 1
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        existing: dict[str, object] = {}
-        if self.path.exists():
-            try:
-                existing = json.loads(self.path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                existing = {}
-        file_calls = existing.get("calls", {})
-        if not isinstance(file_calls, dict):
-            file_calls = {}
-        file_calls[service] = int(file_calls.get(service, 0)) + 1
-        existing["calls"] = file_calls
-        existing["total"] = sum(int(value) for value in file_calls.values())
-        self.path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            existing: dict[str, object] = {}
+            if self.path.exists():
+                try:
+                    existing = json.loads(self.path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    existing = {}
+            file_calls = existing.get("calls", {})
+            if not isinstance(file_calls, dict):
+                file_calls = {}
+            file_calls[service] = int(file_calls.get(service, 0)) + 1
+            existing["calls"] = file_calls
+            existing["total"] = sum(int(value) for value in file_calls.values())
+            self.path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+        except OSError:
+            pass
 
 
 def api_key() -> str:
