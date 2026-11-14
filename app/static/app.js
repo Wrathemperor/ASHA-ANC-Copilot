@@ -72,6 +72,9 @@ function cacheElements() {
     "whatsapp-modal-btn", "whatsapp-modal", "close-wa-modal", "wa-chat-body", "wa-chat-form", "wa-input", "wa-send-btn",
     "tutorial-btn", "tutorial-modal", "close-tutorial-modal", "tutorial-step-container", "tutorial-dots", "tutorial-prev-btn", "tutorial-next-btn",
     "voice-summary-container", "play-summary-btn", "play-summary-text", "play-icon", "summary-lang-badge", "summary-transcript-text", "summary-audio-element",
+    "rail-nav-register", "rail-nav-mothers", "rail-nav-transcripts", "rail-nav-guidelines", "rail-nav-whatsapp", "rail-nav-tutorial", "rail-nav-dashboard",
+    "guidelines-modal", "close-guidelines-modal", "ok-guidelines-btn",
+    "mothers-directory-modal", "close-mothers-dir-modal", "open-new-mother-modal-btn", "mothers-dir-search-input", "mothers-dir-list",
   ].forEach((id) => { elements[id] = document.getElementById(id); });
 }
 
@@ -902,9 +905,12 @@ async function updateNetworkStatus() {
 // -------------------------------------------------------------
 // Phase 2: Patient Selector & History Timeline
 // -------------------------------------------------------------
+let patientsCache = [];
+
 async function loadPatientList(selectRch = null) {
   try {
     const list = await apiRequest("/api/patients", {}, false);
+    patientsCache = list || [];
     const sel = elements["patient-select"];
     if (!sel) return;
     sel.innerHTML = '<option value="">Select registered mother...</option>';
@@ -1159,6 +1165,191 @@ function bindEvents() {
   elements["play-summary-btn"]?.addEventListener("click", playSpokenSummary);
   initWhatsAppSimulator();
   initOnboardingTutorial();
+
+  // Left Icon Rail Navigation
+  initLeftRail();
+}
+
+function initLeftRail() {
+  const registerBtn = elements["rail-nav-register"];
+  const mothersBtn = elements["rail-nav-mothers"];
+  const transcriptsBtn = elements["rail-nav-transcripts"];
+  const guidelinesBtn = elements["rail-nav-guidelines"];
+  const whatsappBtn = elements["rail-nav-whatsapp"];
+  const tutorialBtn = elements["rail-nav-tutorial"];
+
+  function setActiveRail(activeElement) {
+    document.querySelectorAll(".rail-item").forEach((el) => {
+      el.classList.remove("active");
+      const dot = el.querySelector(".active-dot");
+      if (dot) dot.remove();
+    });
+    if (activeElement) {
+      activeElement.classList.add("active");
+      if (!activeElement.querySelector(".active-dot")) {
+        const dot = document.createElement("span");
+        dot.className = "active-dot";
+        dot.setAttribute("aria-hidden", "true");
+        activeElement.appendChild(dot);
+      }
+    }
+  }
+
+  // 1. Visit Register Button: Smooth scroll to active stage
+  registerBtn?.addEventListener("click", () => {
+    setActiveRail(registerBtn);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const viewport = document.querySelector(".workspace-viewport");
+    if (viewport) viewport.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // 2. Mothers Directory Button
+  mothersBtn?.addEventListener("click", () => {
+    setActiveRail(mothersBtn);
+    openMothersDirectoryModal();
+  });
+
+  // 3. Voice Transcripts & Explainability Card
+  transcriptsBtn?.addEventListener("click", () => {
+    setActiveRail(transcriptsBtn);
+    const auditCard = elements["audit-trail-card"];
+    if (auditCard) {
+      auditCard.hidden = false;
+      const container = elements["audit-transcripts-container"];
+      if (container && !container.children.length) {
+        container.innerHTML = `
+          <div class="audit-transcript-item">
+            <div class="audit-transcript-meta"><span>Active Session</span><span>Gnani Prisma v3.0</span></div>
+            <p class="audit-transcript-text" style="color:#64748b;">No voice recordings captured for this session yet. Press & hold the microphone button to dictate clinical visit notes in your language, and exact Indic transcripts with MoHFW PMSMA evidence spans will appear here.</p>
+          </div>
+        `;
+      }
+      auditCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      auditCard.classList.remove("focus-pulse");
+      void auditCard.offsetWidth; // Force CSS reflow
+      auditCard.classList.add("focus-pulse");
+    }
+  });
+
+  // 4. MoHFW Guidelines Button
+  guidelinesBtn?.addEventListener("click", () => {
+    setActiveRail(guidelinesBtn);
+    if (elements["guidelines-modal"]) elements["guidelines-modal"].hidden = false;
+  });
+
+  // 5. WhatsApp Bot Simulator Button
+  whatsappBtn?.addEventListener("click", () => {
+    setActiveRail(whatsappBtn);
+    if (elements["whatsapp-modal"]) {
+      elements["whatsapp-modal"].hidden = false;
+      elements["wa-input"]?.focus();
+    }
+  });
+
+  // 6. Guided Tutorial Button
+  tutorialBtn?.addEventListener("click", () => {
+    setActiveRail(tutorialBtn);
+    currentTutorialStep = 0;
+    renderTutorialStep(0);
+    if (elements["tutorial-modal"]) elements["tutorial-modal"].hidden = false;
+  });
+
+  // Guidelines Modal close actions
+  elements["close-guidelines-modal"]?.addEventListener("click", () => {
+    if (elements["guidelines-modal"]) elements["guidelines-modal"].hidden = true;
+    setActiveRail(registerBtn);
+  });
+  elements["ok-guidelines-btn"]?.addEventListener("click", () => {
+    if (elements["guidelines-modal"]) elements["guidelines-modal"].hidden = true;
+    setActiveRail(registerBtn);
+  });
+
+  // Mothers Directory Modal close & events
+  elements["close-mothers-dir-modal"]?.addEventListener("click", () => {
+    if (elements["mothers-directory-modal"]) elements["mothers-directory-modal"].hidden = true;
+    setActiveRail(registerBtn);
+  });
+  elements["open-new-mother-modal-btn"]?.addEventListener("click", () => {
+    if (elements["mothers-directory-modal"]) elements["mothers-directory-modal"].hidden = true;
+    if (elements["register-modal"]) elements["register-modal"].hidden = false;
+  });
+  elements["mothers-dir-search-input"]?.addEventListener("input", (e) => {
+    renderMothersDirectory(e.target.value);
+  });
+}
+
+async function openMothersDirectoryModal() {
+  const modal = elements["mothers-directory-modal"];
+  if (!modal) return;
+  modal.hidden = false;
+  if (!patientsCache.length) {
+    try {
+      patientsCache = (await apiRequest("/api/patients", {}, false)) || [];
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  renderMothersDirectory();
+  elements["mothers-dir-search-input"]?.focus();
+}
+
+function renderMothersDirectory(query = "") {
+  const listContainer = elements["mothers-dir-list"];
+  if (!listContainer) return;
+  listContainer.replaceChildren();
+
+  const q = (query || "").trim().toLowerCase();
+  const filtered = (patientsCache || []).filter((p) => {
+    if (!q) return true;
+    return (
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.rch_id && String(p.rch_id).includes(q)) ||
+      (p.village && p.village.toLowerCase().includes(q))
+    );
+  });
+
+  if (!filtered.length) {
+    listContainer.innerHTML = `
+      <div style="padding: 1.5rem; text-align: center; color: var(--muted); font-size: 0.85rem;">
+        No registered mothers found matching "<strong>${escapeHtml(query)}</strong>".
+      </div>
+    `;
+    return;
+  }
+
+  filtered.forEach((p) => {
+    const row = document.createElement("div");
+    row.className = "mother-dir-row";
+    row.innerHTML = `
+      <div class="mother-dir-info">
+        <div class="mother-dir-name">
+          ${escapeHtml(p.name)}
+          <span class="mother-dir-rch">RCH: ${escapeHtml(p.rch_id)}</span>
+        </div>
+        <div class="mother-dir-sub">
+          Village: <strong>${escapeHtml(p.village || "Sector 4")}</strong>
+          ${p.age ? ` · Age: ${p.age}y` : ""}
+          ${p.edd ? ` · EDD: ${p.edd}` : ""}
+        </div>
+      </div>
+      <button class="mother-dir-select-btn" type="button" data-rch="${escapeHtml(p.rch_id)}">
+        Select for Visit &rarr;
+      </button>
+    `;
+
+    row.querySelector(".mother-dir-select-btn")?.addEventListener("click", async () => {
+      if (elements["patient-select"]) elements["patient-select"].value = p.rch_id;
+      await onSelectPatient(p.rch_id);
+      if (elements["mothers-directory-modal"]) elements["mothers-directory-modal"].hidden = true;
+      const registerBtn = elements["rail-nav-register"];
+      if (registerBtn) {
+        document.querySelectorAll(".rail-item").forEach((el) => el.classList.remove("active"));
+        registerBtn.classList.add("active");
+      }
+    });
+
+    listContainer.appendChild(row);
+  });
 }
 
 let currentSummaryAudioB64 = null;
