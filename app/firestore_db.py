@@ -146,12 +146,18 @@ class FirestoreDatabase:
             created_at=data["created_at"],
         )
 
-    def list_patients(self) -> list[PatientRecord]:
-        """List all registered expectant mothers."""
+    def list_patients(self, query: str | None = None) -> list[PatientRecord]:
+        """List registered expectant mothers with optional query filter."""
         docs = self.client.collection("patients").order_by("name").stream()
         results = []
+        q = query.strip().lower() if query else None
         for doc in docs:
             data = doc.to_dict()
+            name = (data.get("name") or "").lower()
+            rch_id = (data.get("rch_id") or "").lower()
+            village = (data.get("village") or "").lower()
+            if q and (q not in name and q not in rch_id and q not in village):
+                continue
             results.append(
                 PatientRecord(
                     id=data["id"],

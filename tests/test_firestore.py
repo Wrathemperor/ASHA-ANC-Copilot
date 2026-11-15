@@ -23,11 +23,12 @@ def test_firestore_database_operations(monkeypatch):
     mock_google_cloud = MagicMock()
     mock_google_cloud.firestore = mock_firestore_module
 
-    sys.modules["google"] = MagicMock()
-    sys.modules["google.cloud"] = mock_google_cloud
-    sys.modules["google.cloud.firestore"] = mock_firestore_module
-    sys.modules["google.oauth2"] = MagicMock()
-    sys.modules["google.oauth2.service_account"] = MagicMock()
+    mock_google = MagicMock()
+    monkeypatch.setitem(sys.modules, "google", mock_google)
+    monkeypatch.setitem(sys.modules, "google.cloud", mock_google_cloud)
+    monkeypatch.setitem(sys.modules, "google.cloud.firestore", mock_firestore_module)
+    monkeypatch.setitem(sys.modules, "google.oauth2", MagicMock())
+    monkeypatch.setitem(sys.modules, "google.oauth2.service_account", MagicMock())
 
     db = FirestoreDatabase(project_id="test-anc-copilot")
     assert db.client == mock_client
@@ -68,3 +69,32 @@ def test_firestore_database_operations(monkeypatch):
     assert visit.gestational_weeks == 14
     assert visit.bp_systolic == 120
     assert visit.bp_diastolic == 80
+
+    # Test list_patients with and without query filter
+    mock_p1 = MagicMock()
+    mock_p1.to_dict.return_value = {
+        "id": "p1", "rch_id": "1001", "name": "Sunita Devi", "age": 24, "village": "Rampur", "edd": "2026-12-01", "created_at": "2026-11-01"
+    }
+    mock_p2 = MagicMock()
+    mock_p2.to_dict.return_value = {
+        "id": "p2", "rch_id": "1002", "name": "Pooja Sharma", "age": 22, "village": "Sitapur", "edd": "2026-12-15", "created_at": "2026-11-01"
+    }
+    mock_client.collection.return_value.order_by.return_value.stream.return_value = [mock_p1, mock_p2]
+
+    # No query
+    all_pts = db.list_patients()
+    assert len(all_pts) == 2
+
+    # Query matching Sunita
+    filtered_sunita = db.list_patients("sunita")
+    assert len(filtered_sunita) == 1
+    assert filtered_sunita[0].name == "Sunita Devi"
+
+    # Query matching village Sitapur
+    filtered_village = db.list_patients(query="sitapur")
+    assert len(filtered_village) == 1
+    assert filtered_village[0].name == "Pooja Sharma"
+
+    # Query non-matching
+    filtered_none = db.list_patients(query="nomatch")
+    assert len(filtered_none) == 0
