@@ -650,7 +650,23 @@ class Database:
                 )
 
 
-def init_db(db_path: Path | str | None = None, seed: bool = False) -> Database:
+def init_db(db_path: Path | str | None = None, seed: bool = False) -> Any:
+    """Initialize database: uses Firestore if configured, otherwise falls back to SQLite."""
+    # Check if Firestore is configured in the environment
+    try:
+        from app.firestore_db import FirestoreDatabase, is_firestore_configured
+        if is_firestore_configured():
+            try:
+                db = FirestoreDatabase()
+                if seed:
+                    db.seed_initial_patients()
+                return db
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Firestore initialization failed, falling back to SQLite: %s", e)
+    except ImportError:
+        pass
+
     path = db_path or DEFAULT_DB_PATH
     db = Database(path)
     if seed:

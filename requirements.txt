@@ -8,3 +8,5 @@ numpy
 matplotlib
 jiwer
 pytest
+google-cloud-firestore
+
