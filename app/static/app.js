@@ -72,7 +72,8 @@ function cacheElements() {
     "whatsapp-modal-btn", "whatsapp-modal", "close-wa-modal", "wa-chat-body", "wa-chat-form", "wa-input", "wa-send-btn",
     "tutorial-btn", "tutorial-modal", "close-tutorial-modal", "tutorial-step-container", "tutorial-dots", "tutorial-prev-btn", "tutorial-next-btn",
     "voice-summary-container", "play-summary-btn", "play-summary-text", "play-icon", "summary-lang-badge", "summary-transcript-text", "summary-audio-element",
-    "rail-nav-register", "rail-nav-mothers", "rail-nav-transcripts", "rail-nav-guidelines", "rail-nav-whatsapp", "rail-nav-tutorial", "rail-nav-dashboard",
+    "rail-nav-register", "rail-nav-mothers", "rail-nav-transcripts", "rail-nav-guidelines", "rail-nav-whatsapp", "rail-nav-tutorial", "rail-nav-dashboard", "rail-nav-demo",
+    "demo-mode-toggle-btn", "demo-mode-status-tag", "hackathon-tester-banner", "exit-demo-mode-btn", "chat-drag-overlay", "demo-audio-shelf",
     "guidelines-modal", "close-guidelines-modal", "ok-guidelines-btn",
     "mothers-directory-modal", "close-mothers-dir-modal", "open-new-mother-modal-btn", "mothers-dir-search-input", "mothers-dir-list",
     "conversation-chat-stream", "composer-text-input", "send-text-button", "recording-live-bar",
@@ -731,28 +732,47 @@ async function routeRecording(blob) {
   });
 }
 
-async function processUploadedAudio(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  if (recording || requestBusy || uploadingAudio || !sessionId) {
-    elements["microphone-error"].textContent = "Wait for the current request or session to finish before uploading audio.";
-    event.target.value = "";
+async function processAudioFileOrBlob(fileOrBlob, fileName = "Audio Encounter", forcedLanguage = null) {
+  if (recording || requestBusy || uploadingAudio) {
+    elements["microphone-error"].textContent = "Wait for the current request or session to finish before processing audio.";
     return;
   }
-  appendUserChatBubble(file.name, "audio_file");
+  if (!sessionId) {
+    await withBusy(createSession);
+  }
+
+  // If a forced language is specified (e.g. from Indic demo clips), switch in realtime
+  if (forcedLanguage && elements["language-select"] && elements["language-select"].value !== forcedLanguage) {
+    elements["language-select"].value = forcedLanguage;
+    if (sessionId) {
+      try {
+        const updated = await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/language`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language: forcedLanguage }),
+        });
+        updateSession(updated);
+      } catch (e) {
+        console.warn("Realtime language switch failed:", e);
+      }
+    }
+  }
+
+  appendUserChatBubble(fileName, "audio_file");
 
   let context = null;
   uploadingAudio = true;
-  elements["upload-audio-button"].disabled = true;
-  elements["mic-button"].disabled = true;
+  if (elements["upload-audio-button"]) elements["upload-audio-button"].disabled = true;
+  if (elements["mic-button"]) elements["mic-button"].disabled = true;
   elements["microphone-error"].textContent = "";
   setMicState("PROCESSING", "Decoding the selected audio clip in memory...");
   try {
-    if (file.size > MAX_UPLOAD_BYTES) {
+    if (fileOrBlob.size > MAX_UPLOAD_BYTES) {
       throw new Error("Audio upload exceeds the 10 MiB limit.");
     }
     context = new AudioContext();
-    const decoded = await context.decodeAudioData(await file.arrayBuffer());
+    const arrayBuffer = await fileOrBlob.arrayBuffer();
+    const decoded = await context.decodeAudioData(arrayBuffer);
     if (!decoded.length || decoded.duration <= 0) {
       throw new Error("The selected audio clip contains no audio.");
     }
@@ -766,17 +786,23 @@ async function processUploadedAudio(event) {
     elements["recording-timer"].textContent = "00:00 / 00:30";
     await routeRecording(wav);
   } catch (error) {
-    elements["microphone-error"].textContent = `Audio upload failed: ${error.message}`;
+    elements["microphone-error"].textContent = `Audio processing failed: ${error.message}`;
     setMicState("IDLE", "Choose a supported .mp3 or .wav clip and try again.");
   } finally {
     if (context && context.state !== "closed") await context.close().catch(() => {});
     uploadingAudio = false;
     const terminal = sessionData
       && ["FINAL_LOCKED", "EMERGENCY_HALT", "MANUAL_EDIT_REQUIRED"].includes(sessionData.state);
-    elements["mic-button"].disabled = Boolean(terminal);
-    elements["upload-audio-button"].disabled = Boolean(terminal);
-    event.target.value = "";
+    if (elements["mic-button"]) elements["mic-button"].disabled = Boolean(terminal);
+    if (elements["upload-audio-button"]) elements["upload-audio-button"].disabled = Boolean(terminal);
   }
+}
+
+async function processUploadedAudio(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  await processAudioFileOrBlob(file, file.name);
+  event.target.value = "";
 }
 
 function downmixAudioBuffer(audioBuffer) {
@@ -1753,7 +1779,7 @@ function renderTutorialStep(stepIndex) {
 
   if (prevBtn) prevBtn.disabled = stepIndex === 0;
   if (nextBtn) {
-    nextBtn.textContent = stepIndex === TUTORIAL_STEPS.length - 1 ? "Complete" : "Next →";
+    nextBtn.innerHTML = stepIndex === TUTORIAL_STEPS.length - 1 ? "Complete" : "Next &rarr;";
   }
 }
 
@@ -1802,9 +1828,174 @@ function initOnboardingTutorial() {
   } catch (e) {}
 }
 
+let isDemoMode = false;
+
+function setDemoMode(enable, updateUrl = true) {
+  isDemoMode = Boolean(enable);
+  if (elements["hackathon-tester-banner"]) elements["hackathon-tester-banner"].hidden = !isDemoMode;
+  if (elements["demo-audio-shelf"]) elements["demo-audio-shelf"].hidden = !isDemoMode;
+
+  if (elements["demo-mode-toggle-btn"]) {
+    elements["demo-mode-toggle-btn"].classList.toggle("active", isDemoMode);
+  }
+  if (elements["demo-mode-status-tag"]) {
+    elements["demo-mode-status-tag"].textContent = isDemoMode ? "ON" : "OFF";
+  }
+  if (elements["rail-nav-demo"]) {
+    elements["rail-nav-demo"].classList.toggle("active", isDemoMode);
+  }
+
+  if (updateUrl) {
+    try {
+      const url = new URL(window.location.href);
+      if (isDemoMode) {
+        url.searchParams.set("demo", "1");
+      } else {
+        url.searchParams.delete("demo");
+      }
+      window.history.replaceState({}, "", url.toString());
+    } catch (_) {}
+  }
+
+  if (isDemoMode) {
+    appendSystemChatBubble(
+      "Demo Evaluator Mode is active. You can drag and drop Indic audio files into the chat window or play and test sample encounters from the testbed shelf below."
+    );
+  }
+}
+
+function initDemoMode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const demoParam = urlParams.get("demo") || urlParams.get("mode");
+  if (demoParam === "1" || demoParam === "demo" || demoParam === "tester") {
+    setDemoMode(true, false);
+  }
+
+  elements["demo-mode-toggle-btn"]?.addEventListener("click", () => {
+    setDemoMode(!isDemoMode, true);
+    if (isDemoMode && elements["demo-audio-shelf"]) {
+      elements["demo-audio-shelf"].scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
+
+  elements["rail-nav-demo"]?.addEventListener("click", () => {
+    setDemoMode(!isDemoMode, true);
+    if (isDemoMode && elements["demo-audio-shelf"]) {
+      elements["demo-audio-shelf"].scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
+
+  elements["exit-demo-mode-btn"]?.addEventListener("click", () => {
+    setDemoMode(false, true);
+  });
+
+  // Wire up the Demo Audio Shelf cards & buttons
+  const demoCards = document.querySelectorAll(".demo-clip-card");
+  demoCards.forEach((card) => {
+    card.addEventListener("dragstart", (e) => {
+      const audioUrl = card.dataset.audioUrl;
+      const lang = card.dataset.lang;
+      const title = card.dataset.title || "Demo Audio Clip";
+      const payload = JSON.stringify({ audioUrl, lang, title });
+      e.dataTransfer.setData("application/demo-clip", payload);
+      e.dataTransfer.setData("text/plain", payload);
+      e.dataTransfer.effectAllowed = "copy";
+    });
+  });
+
+  const loadButtons = document.querySelectorAll(".clip-load-btn");
+  loadButtons.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const audioUrl = btn.dataset.audioUrl;
+      const lang = btn.dataset.lang;
+      const card = btn.closest(".demo-clip-card");
+      const title = card?.dataset.title || "Demo Audio Encounter";
+
+      btn.disabled = true;
+      btn.textContent = "Loading...";
+      try {
+        const response = await fetch(audioUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status} loading fixture`);
+        const blob = await response.blob();
+        await processAudioFileOrBlob(blob, title, lang);
+      } catch (err) {
+        console.error("Demo audio load error:", err);
+        elements["microphone-error"].textContent = `Could not load demo clip: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Test in Chat &rarr;";
+      }
+    });
+  });
+
+  // Setup Drag-and-Drop on Chat Composer Card
+  const chatCard = document.querySelector(".chat-composer-card");
+  const dragOverlay = elements["chat-drag-overlay"];
+
+  if (chatCard && dragOverlay) {
+    let dragCounter = 0;
+
+    chatCard.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (dragCounter === 1) {
+        dragOverlay.hidden = false;
+      }
+    });
+
+    chatCard.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    });
+
+    chatCard.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        dragOverlay.hidden = true;
+      }
+    });
+
+    chatCard.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dragOverlay.hidden = true;
+
+      // Case 1: Dragged an audio file from local OS desktop / file explorer
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (!file.type.startsWith("audio/") && !file.name.match(/\.(wav|mp3|m4a|ogg|webm)$/i)) {
+          elements["microphone-error"].textContent = "Please drop an audio file (.wav, .mp3, .m4a, .webm).";
+          return;
+        }
+        await processAudioFileOrBlob(file, file.name);
+        return;
+      }
+
+      // Case 2: Dragged a demo clip card from the shelf below
+      const customPayload = e.dataTransfer.getData("application/demo-clip") || e.dataTransfer.getData("text/plain");
+      if (customPayload) {
+        try {
+          const data = JSON.parse(customPayload);
+          if (data && data.audioUrl) {
+            const res = await fetch(data.audioUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            await processAudioFileOrBlob(blob, data.title || "Dropped Demo Audio", data.lang);
+          }
+        } catch (parseErr) {
+          console.warn("Dropped payload not demo clip JSON:", parseErr);
+        }
+      }
+    });
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   cacheElements();
   bindEvents();
+  initDemoMode();
   if (!LANGUAGES.includes(elements["language-select"].value)) elements["language-select"].value = "hi-IN";
   updateNetworkStatus();
   loadPatientList();
