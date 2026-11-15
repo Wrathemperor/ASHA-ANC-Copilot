@@ -173,6 +173,21 @@ def send_session_message(session_id: str, req: SessionTextMessageRequest) -> dic
         raise HTTPException(status_code=409, detail=str(error)) from error
 
 
+class SessionLanguageRequest(BaseModel):
+    language: str
+
+
+@app.post("/api/session/{session_id}/language")
+@app.patch("/api/session/{session_id}/language")
+def update_session_language(session_id: str, req: SessionLanguageRequest) -> dict[str, object]:
+    manager = _session_manager()
+    _get_session_or_404(manager, session_id)
+    try:
+        return _session_response(manager.update_language(session_id, req.language))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
 @app.post("/api/session/{session_id}/turn1")
 async def process_turn1(session_id: str, audio: UploadFile = File(...)) -> dict[str, object]:
     manager = _session_manager()

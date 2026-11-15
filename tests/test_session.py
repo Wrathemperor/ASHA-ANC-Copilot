@@ -551,3 +551,34 @@ def test_process_text_message_flow(extracted_record: dict[str, Any]) -> None:
     s3 = manager.process_text_message(session.session_id, "haan sahi hai")
     assert s3.state == FINAL_LOCKED
 
+
+def test_realtime_language_switching_preserves_session(extracted_record: dict[str, Any]) -> None:
+    evon = MockEvonClient(extracted_record)
+    manager = build_manager(MockPrismaClient(), evon)
+    session = manager.create_session("hi-IN")
+
+    note = "BP 120/80, 14 weeks, weight 56 kg"
+    s1 = manager.process_text_message(session.session_id, note)
+    assert s1.state == FOLLOWUP_ACTIVE
+    assert s1.language == "hi-IN"
+    assert s1.record.bp_systolic == 120
+    assert "सिरदर्द" in (s1.original_question or "")
+
+    # Switch language to Tamil in real-time
+    s2 = manager.update_language(session.session_id, "ta-IN")
+    assert s2.session_id == session.session_id
+    assert s2.language == "ta-IN"
+    assert s2.state == FOLLOWUP_ACTIVE
+    assert s2.record.bp_systolic == 120
+    assert s2.record.bp_diastolic == 80
+    assert s2.record.gestational_weeks == 14
+    assert s2.transcript_turn1 == note
+    assert s2.original_question is not None
+
+    # Switch language to English in real-time
+    s3 = manager.update_language(session.session_id, "en-IN")
+    assert s3.language == "en-IN"
+    assert s3.record.bp_systolic == 120
+    assert "headache" in s3.original_question.lower()
+
+

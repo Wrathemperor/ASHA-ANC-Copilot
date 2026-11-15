@@ -1249,7 +1249,37 @@ async function saveCurrentVisitToDb() {
 function numberOrNull(value) { return value === "" ? null : Number(value); }
 
 function bindEvents() {
-  elements["language-select"].addEventListener("change", () => withBusy(createSession));
+  elements["language-select"].addEventListener("change", async () => {
+    const newLang = elements["language-select"].value;
+    const langNames = {
+      "hi-IN": "Hindi (हिन्दी)",
+      "mr-IN": "Marathi (मराठी)",
+      "te-IN": "Telugu (తెలుగు)",
+      "ta-IN": "Tamil (தமிழ்)",
+      "ml-IN": "Malayalam (മലയാളം)",
+      "en-IN": "Indian English",
+    };
+    const displayName = langNames[newLang] || newLang;
+
+    if (!sessionId) {
+      await withBusy(createSession);
+      return;
+    }
+
+    await withBusy(async () => {
+      try {
+        const updated = await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/language`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language: newLang }),
+        });
+        updateSession(updated);
+        appendSystemChatBubble(`Language switched to ${displayName}. Visit notes and clinical register preserved.`);
+      } catch (err) {
+        elements["microphone-error"].textContent = `Language switch failed: ${err.message}`;
+      }
+    });
+  });
   elements["upload-audio-button"].addEventListener("click", () => elements["audio-file-input"].click());
   elements["audio-file-input"].addEventListener("change", processUploadedAudio);
 

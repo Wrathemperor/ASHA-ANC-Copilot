@@ -109,6 +109,39 @@ class SessionManager:
         except KeyError as error:
             raise KeyError(f"Session not found: {session_id}") from error
 
+    def update_language(self, session_id: str, new_language: str) -> SessionState:
+        """Update session language in real-time without restarting conversation or clearing vitals."""
+        if new_language not in SUPPORTED_LANGUAGES:
+            raise ValueError(f"Unsupported language: {new_language}")
+        session = self.get_session(session_id)
+        if session.language == new_language:
+            return session
+        session.language = new_language
+
+        # If currently in follow-up, re-generate prompt in the new language
+        if session.state == FOLLOWUP_ACTIVE and session.current_gap_field:
+            new_question = self._question_for(session, session.current_gap_field)
+            if new_question:
+                session.original_question = new_question
+                if session.clarification_text:
+                    clarify_key = f"{session.current_gap_field}_clarification"
+                    session.clarification_text = self._question_for(session, clarify_key) or new_question
+                self._speak(session, new_question)
+
+        # If currently in read-back confirmation, re-format in the new language
+        elif session.state == READBACK_ACTIVE:
+            template = self._question_for(session, "readback_confirm")
+            if template:
+                readback_prompt = template.format(
+                    bp_sys=session.record.bp_systolic if session.record.bp_systolic is not None else "",
+                    bp_dia=session.record.bp_diastolic if session.record.bp_diastolic is not None else "",
+                    weeks=session.record.gestational_weeks if session.record.gestational_weeks is not None else "",
+                )
+                session.original_question = readback_prompt
+                self._speak(session, readback_prompt)
+
+        return session
+
     def _prisma(self) -> Any:
         if self.prisma_client is None:
             self.prisma_client = PrismaClient()
