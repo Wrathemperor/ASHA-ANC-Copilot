@@ -32,15 +32,8 @@ except Exception:
     app.state.db = None
 
 
-@app.middleware("http")
-async def add_no_cache_headers(request: Request, call_next):
-    response = await call_next(request)
-    path = request.url.path
-    if path in ("/", "/dashboard", "/service-worker.js") or any(path.endswith(ext) for ext in (".html", ".js", ".css")):
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-    return response
+# No-cache headers for static files are served directly by StaticFiles or response handlers
+
 
 
 class SessionStartRequest(BaseModel):
@@ -162,6 +155,22 @@ def start_session(request: SessionStartRequest) -> dict[str, str]:
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     return {"session_id": session.session_id}
+
+
+class SessionTextMessageRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/session/{session_id}/message")
+def send_session_message(session_id: str, req: SessionTextMessageRequest) -> dict[str, object]:
+    manager = _session_manager()
+    _get_session_or_404(manager, session_id)
+    if not req.text.strip():
+        raise HTTPException(status_code=422, detail="Message text is empty.")
+    try:
+        return _session_response(manager.process_text_message(session_id, req.text.strip()))
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @app.post("/api/session/{session_id}/turn1")

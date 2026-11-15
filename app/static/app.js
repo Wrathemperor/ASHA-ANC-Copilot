@@ -75,6 +75,7 @@ function cacheElements() {
     "rail-nav-register", "rail-nav-mothers", "rail-nav-transcripts", "rail-nav-guidelines", "rail-nav-whatsapp", "rail-nav-tutorial", "rail-nav-dashboard",
     "guidelines-modal", "close-guidelines-modal", "ok-guidelines-btn",
     "mothers-directory-modal", "close-mothers-dir-modal", "open-new-mother-modal-btn", "mothers-dir-search-input", "mothers-dir-list",
+    "conversation-chat-stream", "composer-text-input", "send-text-button", "recording-live-bar",
   ].forEach((id) => { elements[id] = document.getElementById(id); });
 }
 
@@ -155,7 +156,13 @@ function setMicState(state, statusText) {
   elements["audio-status"].textContent = statusText;
   elements["mic-button"].classList.toggle("listening", state === "LISTENING");
   elements["recording-wave"].classList.toggle("active", state === "LISTENING");
+  if (elements["recording-live-bar"]) {
+    elements["recording-live-bar"].hidden = state !== "LISTENING";
+  }
   showProcessingShimmer(state === "PROCESSING");
+  if (state === "PROCESSING") {
+    scrollChatToBottom();
+  }
 }
 
 async function apiRequest(url, options = {}, countRequest = true) {
@@ -170,6 +177,137 @@ async function apiRequest(url, options = {}, countRequest = true) {
   return payload;
 }
 
+function scrollChatToBottom() {
+  const stream = elements["conversation-chat-stream"];
+  if (stream) {
+    stream.scrollTop = stream.scrollHeight;
+  }
+}
+
+function updateComposerActionButtons() {
+  const input = elements["composer-text-input"];
+  const micBtn = elements["mic-button"];
+  const sendBtn = elements["send-text-button"];
+  if (!input || !micBtn || !sendBtn) return;
+  const hasText = input.value.trim().length > 0;
+  if (hasText) {
+    micBtn.hidden = true;
+    sendBtn.hidden = false;
+  } else {
+    micBtn.hidden = false;
+    sendBtn.hidden = true;
+  }
+}
+
+function appendUserChatBubble(text, type = "text") {
+  const stream = elements["conversation-chat-stream"];
+  if (!stream) return null;
+  const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const bubble = document.createElement("div");
+  bubble.className = "chat-bubble chat-bubble-user";
+
+  if (type === "voicenote") {
+    bubble.innerHTML = `
+      <div class="bubble-header">
+        <span class="bubble-sender" style="color: #15803d;">ASHA Voice Note</span>
+        <span class="bubble-time">${timeStr}</span>
+      </div>
+      <div class="voicenote-bubble-content">
+        <div class="voicenote-play-icon">▶</div>
+        <div class="voicenote-meta">
+          <span class="voicenote-title">${escapeHtml(text)}</span>
+          <span class="voicenote-transcript" style="color: #4b5563;">Transcribing Indic audio...</span>
+        </div>
+      </div>
+    `;
+  } else if (type === "audio_file") {
+    bubble.innerHTML = `
+      <div class="bubble-header">
+        <span class="bubble-sender" style="color: #15803d;">Uploaded Audio</span>
+        <span class="bubble-time">${timeStr}</span>
+      </div>
+      <p>📁 <strong>${escapeHtml(text)}</strong></p>
+      <span class="voicenote-transcript" style="color: #4b5563;">Processing audio clip...</span>
+    `;
+  } else {
+    bubble.innerHTML = `
+      <div class="bubble-header">
+        <span class="bubble-sender" style="color: #15803d;">ASHA Note</span>
+        <span class="bubble-time">${timeStr}</span>
+      </div>
+      <p>${escapeHtml(text)}</p>
+    `;
+  }
+
+  const shimmer = elements["processing-shimmer-container"];
+  if (shimmer && shimmer.parentElement === stream) {
+    stream.insertBefore(bubble, shimmer);
+  } else {
+    stream.appendChild(bubble);
+  }
+  scrollChatToBottom();
+  return bubble;
+}
+
+function appendSystemChatBubble(text, type = "info") {
+  const stream = elements["conversation-chat-stream"];
+  if (!stream) return;
+  const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const bubble = document.createElement("div");
+  bubble.className = "chat-bubble chat-bubble-ai";
+  bubble.innerHTML = `
+    <div class="bubble-header">
+      <span class="bubble-sender">🩺 ASHA ANC Copilot</span>
+      <span class="bubble-time">${timeStr}</span>
+    </div>
+    <p>${escapeHtml(text)}</p>
+  `;
+  const shimmer = elements["processing-shimmer-container"];
+  if (shimmer && shimmer.parentElement === stream) {
+    stream.insertBefore(bubble, shimmer);
+  } else {
+    stream.appendChild(bubble);
+  }
+  scrollChatToBottom();
+}
+
+function resetChatStream() {
+  const stream = elements["conversation-chat-stream"];
+  if (!stream) return;
+  const userBubbles = stream.querySelectorAll(".chat-bubble-user");
+  userBubbles.forEach((b) => b.remove());
+  if (elements["composer-text-input"]) {
+    elements["composer-text-input"].value = "";
+    updateComposerActionButtons();
+  }
+}
+
+async function sendTextMessage() {
+  const input = elements["composer-text-input"];
+  if (!input || !sessionId || requestBusy) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  updateComposerActionButtons();
+
+  appendUserChatBubble(text, "text");
+
+  setMicState("PROCESSING", "Analyzing clinical note with Indic AI...");
+  await withBusy(async () => {
+    try {
+      const res = await apiRequest(`/api/session/${encodeURIComponent(sessionId)}/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      updateSession(res);
+      scrollChatToBottom();
+    } catch (err) {
+      appendSystemChatBubble(`⚠️ Error: ${err.message}`, "error");
+    }
+  });
+}
+
 async function createSession(retryCount = 0) {
   elements["microphone-error"].textContent = "";
   setMicState("PROCESSING", "Starting an in-memory visit session...");
@@ -180,6 +318,7 @@ async function createSession(retryCount = 0) {
   sessionData = null;
   pendingManualUpdates = {};
   resolvedConflictFields = new Set();
+  resetChatStream();
   renderSession(null);
   try {
     const health = await apiRequest("/health", {}, false);
@@ -215,14 +354,32 @@ function updateSession(nextSession) {
   const previousPrompt = sessionData?.prompt_text;
   sessionData = nextSession;
   renderSession(nextSession);
+
+  // Update any pending voicenote bubble with the actual transcript recognized by Gnani Prisma
+  const stream = elements["conversation-chat-stream"];
+  if (stream && (nextSession.transcript_turn1 || nextSession.transcript_turn2)) {
+    const latestTranscript = nextSession.transcript_turn2 || nextSession.transcript_turn1;
+    const pendingTranscripts = stream.querySelectorAll(".voicenote-transcript");
+    if (pendingTranscripts.length) {
+      const lastPending = pendingTranscripts[pendingTranscripts.length - 1];
+      if (lastPending && (lastPending.textContent.includes("Transcribing") || lastPending.textContent.includes("Processing"))) {
+        lastPending.textContent = `“${latestTranscript}”`;
+        lastPending.style.color = "#0f172a";
+        lastPending.style.fontWeight = "500";
+      }
+    }
+  }
+
   if (nextSession.audio_playback_b64
       && (nextSession.audio_playback_b64 !== previousAudio || nextSession.prompt_text !== previousPrompt)) {
     playPrompt(nextSession.audio_playback_b64);
   }
   if (nextSession.state === "FOLLOWUP_ACTIVE") {
-    setMicState("SPEAKING", "Listen to the question, then tap and hold to answer.");
+    setMicState("SPEAKING", "Listen to the question, then speak or type your answer.");
+    scrollChatToBottom();
   } else if (nextSession.state === "READBACK_ACTIVE") {
-    setMicState("SPEAKING", "Check the numbers, then confirm or speak one correction.");
+    setMicState("SPEAKING", "Check the numbers, then confirm or speak/type correction.");
+    scrollChatToBottom();
   } else if (nextSession.state === "PROCESSING_TURN1") {
     setMicState("PROCESSING", "Transcribing via Prisma...");
   } else if (nextSession.state === "HALT_REPEAT") {
@@ -230,11 +387,12 @@ function updateSession(nextSession) {
   } else if (nextSession.state === "FINAL_LOCKED" || nextSession.state === "EMERGENCY_HALT") {
     setMicState("IDLE", "This visit is locked. Start a new visit when ready.");
     elements["mic-button"].disabled = true;
+    scrollChatToBottom();
   } else if (nextSession.state === "MANUAL_EDIT_REQUIRED") {
     setMicState("IDLE", "Review the register and use the on-screen edit card.");
     elements["mic-button"].disabled = true;
   } else {
-    setMicState("IDLE", "Tap and hold to speak.");
+    setMicState("IDLE", "Tap and hold to speak, or type note.");
   }
 }
 
@@ -575,6 +733,7 @@ async function processUploadedAudio(event) {
     event.target.value = "";
     return;
   }
+  appendUserChatBubble(file.name, "audio_file");
 
   let context = null;
   uploadingAudio = true;
@@ -677,14 +836,18 @@ async function finishRecording() {
   recording = false;
   if (timerInterval) window.clearInterval(timerInterval);
   timerInterval = null;
+  const elapsed = recordingStartedAt ? Math.min((Date.now() - recordingStartedAt) / 1000, MAX_RECORDING_SECONDS) : 0;
+  const elapsedSec = Math.max(1, Math.round(elapsed));
   const buffers = recordedBuffers;
   const context = audioContext;
   cleanupRecorder(false);
+  if (elements["recording-live-bar"]) elements["recording-live-bar"].hidden = true;
   if (!buffers.length || !context) {
     elements["microphone-error"].textContent = "No audio was captured. Please try again.";
     setMicState("IDLE", "Tap and hold to speak.");
     return;
   }
+  appendUserChatBubble(`Voice note (${elapsedSec}s)`, "voicenote");
   try {
     const blob = encodeWav(resample(buffers, context.sampleRate, SAMPLE_RATE), SAMPLE_RATE);
     await context.close();
@@ -695,6 +858,7 @@ async function finishRecording() {
   } finally {
     elements["recording-timer"].textContent = "00:00 / 00:30";
     elements["mic-button"].classList.remove("listening");
+    if (elements["recording-live-bar"]) elements["recording-live-bar"].hidden = true;
   }
 }
 
@@ -1082,6 +1246,17 @@ function bindEvents() {
   elements["language-select"].addEventListener("change", () => withBusy(createSession));
   elements["upload-audio-button"].addEventListener("click", () => elements["audio-file-input"].click());
   elements["audio-file-input"].addEventListener("change", processUploadedAudio);
+
+  // Unified Chat Composer text typing and send
+  elements["composer-text-input"]?.addEventListener("input", updateComposerActionButtons);
+  elements["composer-text-input"]?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendTextMessage();
+    }
+  });
+  elements["send-text-button"]?.addEventListener("click", sendTextMessage);
+
   elements["mic-button"].addEventListener("pointerdown", beginRecording);
   elements["mic-button"].addEventListener("pointerup", (event) => {
     if (holdPointerId === event.pointerId) finishRecording();

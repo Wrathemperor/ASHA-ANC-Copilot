@@ -526,3 +526,28 @@ def test_session_audio_routes_run_complete_happy_path(
         assert final.json()["state"] == FINAL_LOCKED
     finally:
         app.state.session_manager = original_manager
+
+
+def test_process_text_message_flow(extracted_record: dict[str, Any]) -> None:
+    turn2 = dict(extracted_record, severe_headache="denied")
+    evon = MockEvonClient(extracted_record, turn2)
+    manager = build_manager(MockPrismaClient(), evon)
+    session = manager.create_session("hi-IN")
+
+    note = "BP 120/80, 14 weeks, weight 56 kg"
+    s1 = manager.process_text_message(session.session_id, note)
+    assert s1.transcript_turn1 == note
+    assert s1.record.bp_systolic == 120
+    assert s1.record.bp_diastolic == 80
+    assert s1.record.gestational_weeks == 14
+    assert s1.record.weight_kg == 56.0
+    assert s1.state == FOLLOWUP_ACTIVE
+
+    s2 = manager.process_text_message(session.session_id, "sir dard nahi hai")
+    assert s2.transcript_turn2 == "sir dard nahi hai"
+    assert s2.record.severe_headache == "denied"
+    assert s2.state == READBACK_ACTIVE
+
+    s3 = manager.process_text_message(session.session_id, "haan sahi hai")
+    assert s3.state == FINAL_LOCKED
+

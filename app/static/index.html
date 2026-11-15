@@ -13,8 +13,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icons/icon-192.svg">
-  <link rel="stylesheet" href="/styles.css?v=2.1">
-  <script src="/app.js?v=2.1" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=2.2">
+  <script src="/app.js?v=2.2" defer></script>
 </head>
 <body class="desktop-workspace">
   <!-- Minimal Porcelain Icon Rail -->
@@ -176,129 +176,133 @@
           <span class="demo-tag">DEMO</span> Offline demo: uploaded audio selects a synthetic fixture transcript by file content. No speech recognition or clinical extraction is performed on your audio; do not use patient recordings.
         </aside>
 
-        <!-- Voice Visit Composer Card -->
-        <div class="card audio-card" aria-labelledby="audio-heading">
-          <div class="card-header">
+        <!-- Unified Clinical Voice & Chat Composer Card -->
+        <div class="card chat-composer-card" aria-labelledby="audio-heading">
+          <div class="card-header chat-card-header">
             <div>
-              <p class="meta-label">VOICE COMPOSER</p>
-              <h2 id="audio-heading" class="card-title">Speak to update the register</h2>
+              <p class="meta-label">CLINICAL VISIT CHAT</p>
+              <h2 id="audio-heading" class="card-title">Dictate, Type, or Upload Notes</h2>
             </div>
-            <span id="mic-state" class="state-chip">IDLE</span>
-          </div>
-
-          <p id="audio-status" class="audio-status" aria-live="polite">Tap and hold to speak your visit note.</p>
-
-          <!-- TextShimmerWave Loading Animation (Active during audio processing) -->
-          <div id="processing-shimmer-container" class="processing-shimmer-container" hidden aria-live="polite">
-            <div class="shimmer-wave-card">
-              <div class="shimmer-wave-row" id="shimmer-row-1"></div>
-              <div class="shimmer-wave-row" id="shimmer-row-2"></div>
-              <div class="shimmer-wave-row" id="shimmer-row-3"></div>
+            <div class="chat-header-actions">
+              <span id="mic-state" class="state-chip">READY</span>
             </div>
           </div>
 
-          <div class="mic-stage">
-            <div class="mic-wrap">
-              <span id="recording-wave" class="recording-wave" aria-hidden="true"></span>
-              <button id="mic-button" class="mic-button" type="button" aria-label="Press and hold to record" disabled>
-                <span class="mic-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                    <line x1="12" y1="19" x2="12" y2="23"/>
-                    <line x1="8" y1="23" x2="16" y2="23"/>
-                  </svg>
-                </span>
-                <span class="mic-button-label">HOLD TO SPEAK</span>
-              </button>
+          <!-- Chat Messages Stream / History -->
+          <div id="conversation-chat-stream" class="chat-stream-container" role="log" aria-live="polite">
+            <!-- Welcome System Bubble -->
+            <div class="chat-bubble chat-bubble-ai system-welcome-bubble">
+              <div class="bubble-header">
+                <span class="bubble-sender">🩺 ASHA ANC Copilot</span>
+                <span class="bubble-time">Live</span>
+              </div>
+              <p>Namaste ASHA Didi! Record your antenatal visit note in your language:</p>
+              <ul class="chat-welcome-list">
+                <li>🎙️ <strong>Hold the mic</strong> to dictate a voice note.</li>
+                <li>✍️ <strong>Or type</strong> clinical details directly below.</li>
+                <li>📎 <strong>Or attach</strong> an audio clip.</li>
+              </ul>
             </div>
-            <div class="timer-row">
-              <span class="recording-live-dot" aria-hidden="true"></span>
-              <p id="recording-timer" class="recording-timer" aria-live="polite">00:00 / 00:30</p>
+
+            <!-- Dynamic Outgoing & Incoming Bubbles injected here -->
+
+            <!-- Integrated TextShimmerWave Loading State -->
+            <div id="processing-shimmer-container" class="chat-bubble chat-bubble-ai processing-shimmer-container" hidden aria-live="polite">
+              <div class="shimmer-wave-card">
+                <div class="shimmer-wave-row" id="shimmer-row-1"></div>
+                <div class="shimmer-wave-row" id="shimmer-row-2"></div>
+                <div class="shimmer-wave-row" id="shimmer-row-3"></div>
+              </div>
+            </div>
+
+            <!-- Integrated Follow-up Question & Clarification Card -->
+            <div id="interaction-card" class="chat-bubble chat-bubble-ai chat-followup-bubble" hidden>
+              <div class="bubble-header">
+                <span class="bubble-sender">❓ Clinical Safety Check</span>
+                <div class="interaction-header-actions">
+                  <button id="replay-button" class="mini-icon-btn" type="button" title="Listen / Replay audio prompt">
+                    🔊 Listen
+                  </button>
+                  <button id="clarify-button" class="mini-icon-btn clarify-btn" type="button" title="Simplify question for mother">
+                    Clarify
+                  </button>
+                </div>
+              </div>
+
+              <!-- Stacked Question & Clarification Container -->
+              <div id="interaction-prompts-container" class="interaction-prompts-container">
+                <div id="original-question-box" class="prompt-card original-question-card" hidden>
+                  <div class="prompt-card-header">
+                    <span id="original-question-label" class="prompt-badge original-badge">FOLLOW-UP QUESTION</span>
+                    <span id="original-question-field" class="prompt-field-tag"></span>
+                  </div>
+                  <p id="original-question-text" class="prompt-text original-text"></p>
+                </div>
+
+                <div id="clarification-box" class="prompt-card clarification-card" hidden>
+                  <div class="prompt-card-header">
+                    <span class="prompt-badge clarify-badge">CLARIFICATION</span>
+                    <span id="clarification-reason-tag" class="prompt-reason-tag"></span>
+                  </div>
+                  <p id="clarification-text" class="prompt-text clarify-text"></p>
+                </div>
+
+                <div id="default-prompt-bubble" class="prompt-bubble" hidden>
+                  <p id="prompt-text" class="prompt-text"></p>
+                </div>
+              </div>
+
+              <audio id="prompt-audio" hidden></audio>
+              <p id="interaction-help" class="interaction-help muted" style="margin: 0.4rem 0 0; font-size: 0.72rem;"></p>
             </div>
           </div>
 
-          <div class="audio-upload-control">
-            <button id="upload-audio-button" class="secondary-button upload-btn" type="button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
+          <!-- Bottom WhatsApp-Style Input Bar -->
+          <div class="chat-composer-bar">
+            <!-- Audio upload button -->
+            <button id="upload-audio-button" class="chat-attach-btn" type="button" title="Upload audio file (.mp3 / .wav)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="attach-icon">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
               </svg>
-              Upload Audio Clip (.mp3 / .wav)
             </button>
             <input id="audio-file-input" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" hidden>
-          </div>
-          <p id="microphone-error" class="inline-error" role="alert"></p>
-        </div>
 
-        <!-- Spoken Interaction / Voice Follow-up Card -->
-        <div id="interaction-card" class="card interaction-card" aria-labelledby="interaction-heading" hidden>
-          <div class="card-header">
-            <div>
-              <p class="meta-label">VOICE FOLLOW-UP</p>
-              <h2 id="interaction-heading" class="card-title">Listen and respond</h2>
+            <!-- Text input for typing visit notes or follow-up answers -->
+            <div class="chat-input-wrapper">
+              <input id="composer-text-input" type="text" placeholder="Type visit notes or hold mic to speak..." class="chat-text-input" autocomplete="off">
             </div>
-            <div class="interaction-header-actions">
-              <button id="clarify-button" class="secondary-button clarify-btn" type="button" aria-label="Ask for clarification" title="Ask mother for clarification on this question">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+
+            <!-- Active Recording Bar (revealed while mic is held/recording) -->
+            <div id="recording-live-bar" class="recording-live-bar" hidden>
+              <span class="recording-live-dot" aria-hidden="true"></span>
+              <span id="recording-wave" class="recording-wave" aria-hidden="true"></span>
+              <p id="recording-timer" class="recording-timer" aria-live="polite">00:00 / 00:30</p>
+              <span class="recording-hint-text">Release to send</span>
+            </div>
+
+            <!-- Dynamic Action Trigger: Mic Button when input is empty, Send Button when text typed -->
+            <div class="chat-action-btn-wrap">
+              <button id="mic-button" class="chat-mic-btn" type="button" aria-label="Press and hold to record voicenote" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chat-mic-icon">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
                 </svg>
-                Clarify
               </button>
-              <button id="replay-button" class="secondary-button replay-btn" type="button" aria-label="Replay spoken prompt">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-                  <polygon points="5 3 19 12 5 21 5 3" />
+
+              <button id="send-text-button" class="chat-send-btn" type="button" title="Send visit note" hidden>
+                <svg viewBox="0 0 24 24" fill="currentColor" class="chat-send-icon">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                 </svg>
-                Replay
               </button>
             </div>
           </div>
 
-          <!-- Stacked Prompts Container: Original question stays at top, Clarification appears in box below it -->
-          <div id="interaction-prompts-container" class="interaction-prompts-container">
-            <!-- Box 1: Original Follow-Up Question -->
-            <div id="original-question-box" class="prompt-card original-question-card" hidden>
-              <div class="prompt-card-header">
-                <span class="prompt-badge original-badge">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="badge-icon">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="16" x2="12" y2="12"/>
-                    <line x1="12" y1="8" x2="12.01" y2="8"/>
-                  </svg>
-                  <span id="original-question-label">FOLLOW-UP QUESTION</span>
-                </span>
-                <span id="original-question-field" class="prompt-field-tag"></span>
-              </div>
-              <p id="original-question-text" class="prompt-text original-text"></p>
-            </div>
-
-            <!-- Box 2: Clarification / Repeat Box (Rendered below original question, not replacing it) -->
-            <div id="clarification-box" class="prompt-card clarification-card" hidden>
-              <div class="prompt-card-header">
-                <span class="prompt-badge clarify-badge">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="badge-icon">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                  <span>CLARIFICATION REQUEST</span>
-                </span>
-                <span id="clarification-reason-tag" class="prompt-reason-tag"></span>
-              </div>
-              <p id="clarification-text" class="prompt-text clarify-text"></p>
-            </div>
-
-            <!-- Default bubble for readback / session prompts when not in dual question mode -->
-            <div id="default-prompt-bubble" class="prompt-bubble" hidden>
-              <p id="prompt-text" class="prompt-text"></p>
-            </div>
+          <div class="composer-status-footer">
+            <span id="audio-status" class="audio-status-inline">Tap &amp; hold mic to record, or type message</span>
+            <p id="microphone-error" class="inline-error" role="alert"></p>
           </div>
-
-          <audio id="prompt-audio" hidden></audio>
-          <p id="interaction-help" class="interaction-help muted"></p>
         </div>
       </section>
 

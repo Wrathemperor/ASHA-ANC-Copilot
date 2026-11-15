@@ -382,6 +382,107 @@ class SessionManager:
             return self._ask_followup(session)
         return self._start_readback(session)
 
+    def process_text_message(self, session_id: str, text: str) -> SessionState:
+        session = self.get_session(session_id)
+        if session.state in {IDLE, HALT_REPEAT}:
+            session.transcript_turn1 = text
+            session.transcripts.append({
+                "turn": 1,
+                "role": "asha_visit_note",
+                "prompt": None,
+                "transcript": text,
+                "source": "chat_text",
+            })
+            try:
+                record = extract_visit_record(
+                    text,
+                    language=session.language,
+                    evon_client=self._evon(),
+                )
+            except Exception:
+                record = ANCVisitRecord()
+
+            from app.whatsapp import _parse_text_vitals
+            session.record = _parse_text_vitals(text, record)
+            session.state = TURN1_EXTRACTED
+            session.evaluation = evaluate_visit(
+                session.record, previous_visits=session.previous_visits
+            )
+            self._update_risk(session)
+            if session.evaluation.emergency_bypass:
+                session.state = EMERGENCY_HALT
+                session.halt_reason = "Emergency referral rule triggered."
+                return session
+            if session.evaluation.voice_followup_gaps:
+                return self._ask_followup(session)
+            return self._start_readback(session)
+
+        elif session.state == FOLLOWUP_ACTIVE:
+            session.transcript_turn2 = text
+            session.transcripts.append({
+                "turn": 2,
+                "role": "asha_followup_response",
+                "prompt": session.prompt_text,
+                "transcript": text,
+                "source": "chat_text",
+            })
+            try:
+                turn2_record = extract_visit_record(
+                    text,
+                    language=session.language,
+                    evon_client=self._evon(),
+                )
+            except Exception:
+                turn2_record = ANCVisitRecord()
+
+            from app.whatsapp import _parse_text_vitals
+            turn2_record = _parse_text_vitals(text, turn2_record)
+            session.record = merge_turn2_update(session.record, turn2_record)
+            session.conflicts = [
+                asdict(conflict) for conflict in session.record.conflicts
+            ]
+            session.followup_turn_count += 1
+            session.evaluation = evaluate_visit(
+                session.record, previous_visits=session.previous_visits
+            )
+            self._update_risk(session)
+            if session.evaluation.emergency_bypass:
+                session.state = EMERGENCY_HALT
+                session.halt_reason = "Emergency referral rule triggered during follow-up."
+                session.current_gap_field = None
+                return session
+            if session.followup_turn_count < MAX_FOLLOWUP_TURNS and session.evaluation.voice_followup_gaps:
+                return self._ask_followup(session)
+            return self._start_readback(session)
+
+        elif session.state == READBACK_ACTIVE:
+            lower = text.lower().strip()
+            if any(w in lower for w in ("yes", "haan", "ha", "correct", "sahi", "theek", "confirm", "ho")):
+                session.state = FINAL_LOCKED
+                session.halt_reason = None
+            else:
+                from app.whatsapp import _parse_text_vitals
+                session.record = _parse_text_vitals(text, session.record)
+                session.evaluation = evaluate_visit(
+                    session.record, previous_visits=session.previous_visits
+                )
+                self._update_risk(session)
+                session.state = FINAL_LOCKED
+                session.halt_reason = None
+            return session
+
+        elif session.state == MANUAL_EDIT_REQUIRED:
+            from app.whatsapp import _parse_text_vitals
+            session.record = _parse_text_vitals(text, session.record)
+            session.evaluation = evaluate_visit(
+                session.record, previous_visits=session.previous_visits
+            )
+            self._update_risk(session)
+            session.state = FINAL_LOCKED
+            return session
+
+        return session
+
     def request_clarification(
         self,
         session_id: str,

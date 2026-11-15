@@ -224,3 +224,4 @@ def test_offline_demo_api_runs_fixture_through_rules_and_readback(
         assert final.json()["state"] == FINAL_LOCKED
     finally:
         app.state.session_manager = original_manager
+
