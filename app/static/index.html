@@ -13,8 +13,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icons/icon-192.svg">
-  <link rel="stylesheet" href="/styles.css?v=2.5">
-  <script src="/app.js?v=2.5" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=2.6">
+  <script src="/app.js?v=2.6" defer></script>
 </head>
 <body class="desktop-workspace">
   <!-- Minimal Porcelain Icon Rail -->
@@ -353,122 +353,54 @@
         </div>
 
         <!-- Hackathon Evaluator Demo Audio Shelf (Revealed in Demo Mode) -->
-        <div id="demo-audio-shelf" class="card demo-audio-shelf" hidden>
-          <div class="card-header shelf-header">
-            <div>
-              <p class="meta-label">HACKATHON EVALUATOR SUITE</p>
-              <h3 class="card-title shelf-title">Pre-Recorded Indic Audio Clips</h3>
+        <div id="demo-audio-shelf" class="demo-audio-shelf" hidden>
+          <div class="shelf-header">
+            <div class="shelf-header-title">
+              <svg class="shelf-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+              <div>
+                <h3>Pre-Recorded Clinical Encounters</h3>
+                <p>Listen directly, click <strong>Test in Chat &rarr;</strong>, or drag cards into the chat window above.</p>
+              </div>
             </div>
-            <span class="state-chip shelf-chip">6 Test Scenarios</span>
+            <span class="shelf-count-badge">2 Curated Encounters</span>
           </div>
-          <p class="shelf-instruction-text">
-            Listen directly using the inline audio players below, <strong>drag and drop</strong> any card into the chat window above, or click <strong>Test in Chat &rarr;</strong>.
-          </p>
 
           <div class="demo-clips-grid">
-            <!-- Clip 1: Normal Hindi -->
-            <div class="demo-clip-card" draggable="true" data-audio-url="/demo-audio/normal_hindi.wav" data-lang="hi-IN" data-title="Hindi: Normal Visit (28w)">
+            <!-- Clip 1: Real Hindi Visit Recording (Sunita Devi, 32w, BP 145/95 with swelling) -->
+            <div class="demo-clip-card" draggable="true" data-audio-url="/demo-audio/demo_hindi.mp3" data-lang="hi-IN" data-title="Hindi: Sunita Devi (32w) — BP 145/95 with Swelling">
               <div class="clip-card-header">
-                <span class="clip-lang-tag">Hindi</span>
+                <span class="clip-lang-tag">Hindi (हिन्दी)</span>
+                <span class="clip-status-tag tag-high">Hypertension Alert [ANC-01]</span>
+              </div>
+              <h4 class="clip-name">Sunita Devi (32w) — BP 145/95</h4>
+              <p class="clip-snippet">&ldquo;सुनीता देवी का ANC home visit... 32 weeks की pregnancy चल रही है। कल checkup में BP 145/95 आया था और दोनों पैरों में काफ़ी swelling है, bleeding नहीं है, बुखार नहीं है। Baby movement normal है। IFA और calcium ले रही है...&rdquo;</p>
+              <div class="clip-player-wrap">
+                <audio controls preload="none" src="/demo-audio/demo_hindi.mp3" class="demo-inline-player"></audio>
+              </div>
+              <div class="clip-actions">
+                <button type="button" class="clip-load-btn" data-audio-url="/demo-audio/demo_hindi.mp3" data-lang="hi-IN">
+                  Test in Chat &rarr;
+                </button>
+              </div>
+            </div>
+
+            <!-- Clip 2: Indian English Routine Visit (Pooja Sharma, 28w, BP 120/80) -->
+            <div class="demo-clip-card" draggable="true" data-audio-url="/demo-audio/demo_english.wav" data-lang="en-IN" data-title="English: Pooja Sharma (28w) — Routine ANC Visit (BP 120/80)">
+              <div class="clip-card-header">
+                <span class="clip-lang-tag">Indian English</span>
                 <span class="clip-status-tag tag-normal">Normal ANC</span>
               </div>
-              <h4 class="clip-name">28 Weeks Routine Checkup</h4>
-              <p class="clip-snippet">&ldquo;28 hafte garbh hai, BP 120 by 80. Sujan nahi, tez sir dard nahi, bachche ki halchal normal hai...&rdquo;</p>
+              <h4 class="clip-name">Pooja Sharma (28w) — Routine Visit</h4>
+              <p class="clip-snippet">&ldquo;Pooja Sharma, antenatal home visit. She is 28 weeks pregnant. Blood pressure is 120/80. Weight 58 kilograms. She has no headache, no blurred vision, and no swelling. Fetal movement is active and normal...&rdquo;</p>
               <div class="clip-player-wrap">
-                <audio controls preload="none" src="/demo-audio/normal_hindi.wav" class="demo-inline-player"></audio>
+                <audio controls preload="none" src="/demo-audio/demo_english.wav" class="demo-inline-player"></audio>
               </div>
               <div class="clip-actions">
-                <button type="button" class="clip-load-btn" data-audio-url="/demo-audio/normal_hindi.wav" data-lang="hi-IN">
-                  Test in Chat &rarr;
-                </button>
-              </div>
-            </div>
-
-            <!-- Clip 2: Pre-Eclampsia Hindi -->
-            <div class="demo-clip-card" draggable="true" data-audio-url="/demo-audio/preeclampsia_hindi.wav" data-lang="hi-IN" data-title="Hindi: High BP + Headache (26w)">
-              <div class="clip-card-header">
-                <span class="clip-lang-tag">Hindi</span>
-                <span class="clip-status-tag tag-urgent">Pre-Eclampsia Danger</span>
-              </div>
-              <h4 class="clip-name">High Blood Pressure (BP 148/96)</h4>
-              <p class="clip-snippet">&ldquo;26 hafte garbh hai, BP 148 by 96 hai. Pairo me sujan hai aur bahut tez sir dard rehta hai...&rdquo;</p>
-              <div class="clip-player-wrap">
-                <audio controls preload="none" src="/demo-audio/preeclampsia_hindi.wav" class="demo-inline-player"></audio>
-              </div>
-              <div class="clip-actions">
-                <button type="button" class="clip-load-btn" data-audio-url="/demo-audio/preeclampsia_hindi.wav" data-lang="hi-IN">
-                  Test in Chat &rarr;
-                </button>
-              </div>
-            </div>
-
-            <!-- Clip 3: Anemia Hindi -->
-            <div class="demo-clip-card" draggable="true" data-audio-url="/demo-audio/anemia_hindi.wav" data-lang="hi-IN" data-title="Hindi: Severe Anemia Hb 8.2 (16w)">
-              <div class="clip-card-header">
-                <span class="clip-lang-tag">Hindi</span>
-                <span class="clip-status-tag tag-high">Anemia Alert [ANC-08]</span>
-              </div>
-              <h4 class="clip-name">Severe Anemia Check (Hb 8.2)</h4>
-              <p class="clip-snippet">&ldquo;16 hafte, BP 110/70, hemoglobin 8.2 hai, bahut kamzori aur thakan mehsoos hoti hai...&rdquo;</p>
-              <div class="clip-player-wrap">
-                <audio controls preload="none" src="/demo-audio/anemia_hindi.wav" class="demo-inline-player"></audio>
-              </div>
-              <div class="clip-actions">
-                <button type="button" class="clip-load-btn" data-audio-url="/demo-audio/anemia_hindi.wav" data-lang="hi-IN">
-                  Test in Chat &rarr;
-                </button>
-              </div>
-            </div>
-
-            <!-- Clip 4: Marathi Normal -->
-            <div class="demo-clip-card" draggable="true" data-audio-url="/demo-audio/normal_marathi.wav" data-lang="mr-IN" data-title="Marathi: Normal Visit (28w)">
-              <div class="clip-card-header">
-                <span class="clip-lang-tag">Marathi</span>
-                <span class="clip-status-tag tag-normal">Normal ANC</span>
-              </div>
-              <h4 class="clip-name">२८ आठवडे तपासणी (BP 120/80)</h4>
-              <p class="clip-snippet">&ldquo;गर्भावस्थेला २८ आठवडे झाले आहेत, BP १२० बाय ८०. सूज नाही, डोकेदुखी नाही, हालचाल चांगली आहे...&rdquo;</p>
-              <div class="clip-player-wrap">
-                <audio controls preload="none" src="/demo-audio/normal_marathi.wav" class="demo-inline-player"></audio>
-              </div>
-              <div class="clip-actions">
-                <button type="button" class="clip-load-btn" data-audio-url="/demo-audio/normal_marathi.wav" data-lang="mr-IN">
-                  Test in Chat &rarr;
-                </button>
-              </div>
-            </div>
-
-            <!-- Clip 5: Telugu Follow-up Gap -->
-            <div class="demo-clip-card" draggable="true" data-audio-url="/demo-audio/gap_telugu.wav" data-lang="te-IN" data-title="Telugu: Follow-up Gap (24w)">
-              <div class="clip-card-header">
-                <span class="clip-lang-tag">Telugu</span>
-                <span class="clip-status-tag tag-gap">Safety Gap Follow-up</span>
-              </div>
-              <h4 class="clip-name">24 వారాలు (BP 130/84)</h4>
-              <p class="clip-snippet">&ldquo;గర్భం 24 వారాలు, BP 130 బై 84. తీవ్రమైన తలనొప్పి ఉంది... (Triggers vision question)&rdquo;</p>
-              <div class="clip-player-wrap">
-                <audio controls preload="none" src="/demo-audio/gap_telugu.wav" class="demo-inline-player"></audio>
-              </div>
-              <div class="clip-actions">
-                <button type="button" class="clip-load-btn" data-audio-url="/demo-audio/gap_telugu.wav" data-lang="te-IN">
-                  Test in Chat &rarr;
-                </button>
-              </div>
-            </div>
-
-            <!-- Clip 6: English Normal -->
-            <div class="demo-clip-card" draggable="true" data-audio-url="/demo-audio/normal_english.wav" data-lang="en-IN" data-title="English: Routine Visit (32w)">
-              <div class="clip-card-header">
-                <span class="clip-lang-tag">English</span>
-                <span class="clip-status-tag tag-normal">Normal ANC</span>
-              </div>
-              <h4 class="clip-name">Routine Second Trimester (32w)</h4>
-              <p class="clip-snippet">&ldquo;Patient is 28 weeks pregnant. Blood pressure is 120 over 80. No swelling, fetal movement active...&rdquo;</p>
-              <div class="clip-player-wrap">
-                <audio controls preload="none" src="/demo-audio/normal_english.wav" class="demo-inline-player"></audio>
-              </div>
-              <div class="clip-actions">
-                <button type="button" class="clip-load-btn" data-audio-url="/demo-audio/normal_english.wav" data-lang="en-IN">
+                <button type="button" class="clip-load-btn" data-audio-url="/demo-audio/demo_english.wav" data-lang="en-IN">
                   Test in Chat &rarr;
                 </button>
               </div>
