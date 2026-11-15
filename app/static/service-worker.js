@@ -1,8 +1,8 @@
-const CACHE_NAME = "asha-anc-copilot-v4";
+const CACHE_NAME = "asha-anc-copilot-v5";
 const APP_SHELL = [
   "/",
-  "/styles.css?v=2.2",
-  "/app.js?v=2.2",
+  "/styles.css?v=2.3",
+  "/app.js?v=2.3",
   "/manifest.json",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",

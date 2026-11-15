@@ -223,10 +223,13 @@ function appendUserChatBubble(text, type = "text") {
   } else if (type === "audio_file") {
     bubble.innerHTML = `
       <div class="bubble-header">
-        <span class="bubble-sender" style="color: #15803d;">Uploaded Audio</span>
+        <span class="bubble-sender" style="color: #15803d;">
+          <svg class="bubble-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          Uploaded Audio
+        </span>
         <span class="bubble-time">${timeStr}</span>
       </div>
-      <p>📁 <strong>${escapeHtml(text)}</strong></p>
+      <p><strong>${escapeHtml(text)}</strong></p>
       <span class="voicenote-transcript" style="color: #4b5563;">Processing audio clip...</span>
     `;
   } else {
@@ -257,7 +260,10 @@ function appendSystemChatBubble(text, type = "info") {
   bubble.className = "chat-bubble chat-bubble-ai";
   bubble.innerHTML = `
     <div class="bubble-header">
-      <span class="bubble-sender">🩺 ASHA ANC Copilot</span>
+      <span class="bubble-sender">
+        <svg class="bubble-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        ASHA ANC Copilot
+      </span>
       <span class="bubble-time">${timeStr}</span>
     </div>
     <p>${escapeHtml(text)}</p>
@@ -303,7 +309,7 @@ async function sendTextMessage() {
       updateSession(res);
       scrollChatToBottom();
     } catch (err) {
-      appendSystemChatBubble(`⚠️ Error: ${err.message}`, "error");
+      appendSystemChatBubble(`Error: ${err.message}`, "error");
     }
   });
 }
@@ -1190,7 +1196,7 @@ async function openReferralSlip() {
         item.className = "slip-danger-item";
         const title = document.createElement("span");
         title.className = "slip-danger-title";
-        title.textContent = `⚠️ ${label} (Present)`;
+        title.innerHTML = `<span class="danger-flag-badge">CRITICAL</span> ${escapeHtml(label)} (Present)`;
         item.appendChild(title);
         if (evidenceSpans[field]) {
           const ev = document.createElement("span");
@@ -1653,38 +1659,38 @@ function initWhatsAppSimulator() {
       typingBubble.innerHTML = `<div>${formatted}</div><span class="wa-time">${timeStr}</span>`;
       chatBody.scrollTop = chatBody.scrollHeight;
     } catch (err) {
-      typingBubble.innerHTML = `<p style="color:#b91c1c;">⚠️ Error sending message: ${escapeHtml(err.message)}</p>`;
+      typingBubble.innerHTML = `<p style="color:#b91c1c;">Error sending message: ${escapeHtml(err.message)}</p>`;
     }
   });
 }
 
 const TUTORIAL_STEPS = [
   {
-    hero: "👶",
+    hero: `<svg class="tutorial-svg-hero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
     title: "1. Select Expectant Mother",
     desc: "Start each home visit by choosing the mother from the RCH registry or clicking '+ New Mother'. Pick her spoken Indic language (Hindi, Marathi, Telugu, Tamil, Malayalam, or English).",
     highlight: "Supports 12-digit RCH IDs and tracks longitudinal visit history across all trimesters.",
   },
   {
-    hero: "🎙️",
+    hero: `<svg class="tutorial-svg-hero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
     title: "2. Natural Indic Speech Capture",
     desc: "Press and hold the microphone button to dictate clinical visit notes naturally in the mother's local language. Speak freely without worrying about pre-filling forms.",
     highlight: "Powered by Gnani Prisma v3.0 Indic Speech AI with noise-robust acoustic models.",
   },
   {
-    hero: "🩺",
+    hero: `<svg class="tutorial-svg-hero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
     title: "3. Zero-Hallucination Tri-State Safety",
     desc: "Vitals (BP, gestational weeks, weight, Hb) and 12 danger signs are extracted in real-time. Unmentioned symptoms remain 'Unknown'—silence is never assumed as denial.",
     highlight: "Aligned with MoHFW PMSMA & WHO Antenatal Care safety guidelines.",
   },
   {
-    hero: "❓",
+    hero: `<svg class="tutorial-svg-hero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
     title: "4. Smart Clarifications & Follow-Up",
     desc: "If a critical safety gap exists (such as headache without vision check), Copilot asks a targeted spoken question. Tap 'Clarify' if the mother needs the question simplified.",
     highlight: "Two-turn conversational bounds protect field workers from confusing AI drift.",
   },
   {
-    hero: "📋",
+    hero: `<svg class="tutorial-svg-hero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
     title: "5. PMSMA Referral Slip & Voice Summary",
     desc: "MoHFW rules evaluate referral urgency. Generate an official referral slip with QR code for hospital triage, and play a 15-second spoken summary to the mother's family.",
     highlight: "Low-literacy voice playback bridges the gap between ASHA workers and rural families.",
@@ -1717,7 +1723,7 @@ function renderTutorialStep(stepIndex) {
 
   if (prevBtn) prevBtn.disabled = stepIndex === 0;
   if (nextBtn) {
-    nextBtn.textContent = stepIndex === TUTORIAL_STEPS.length - 1 ? "Finish ✓" : "Next →";
+    nextBtn.textContent = stepIndex === TUTORIAL_STEPS.length - 1 ? "Complete" : "Next →";
   }
 }
 

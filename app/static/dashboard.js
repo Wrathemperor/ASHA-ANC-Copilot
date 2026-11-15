@@ -341,7 +341,7 @@
           <div>
             ${
               latestVisit && latestVisit.verified_by_supervisor
-                ? '<span class="sign-status">✓ Verified by Medical Officer / ANM</span>'
+                ? '<span class="sign-status"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>Verified by Medical Officer / ANM</span>'
                 : '<span class="text-muted" style="font-size: 0.8rem;">Pending Supervisor Review</span>'
             }
           </div>
