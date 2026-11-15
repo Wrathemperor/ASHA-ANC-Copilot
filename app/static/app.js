@@ -1599,10 +1599,15 @@ document.addEventListener("DOMContentLoaded", () => {
   loadPatientList();
   createSession();
 
-  // Service Worker Registration for PWA
+  // Service Worker Registration for PWA with auto-update
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+      navigator.serviceWorker
+        .register("/service-worker.js")
+        .then((reg) => {
+          reg.update();
+        })
+        .catch(() => {});
     });
   }
 });

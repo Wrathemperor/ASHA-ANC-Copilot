@@ -32,6 +32,17 @@ except Exception:
     app.state.db = None
 
 
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path in ("/", "/dashboard", "/service-worker.js") or any(path.endswith(ext) for ext in (".html", ".js", ".css")):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 class SessionStartRequest(BaseModel):
     language: str = "hi-IN"
 
